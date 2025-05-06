@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="./Ametrin.Serializer.Generator/Ametrin.Serializer.Generator.csproj" />
+  <Project Path="./Ametrin.Serializer.Sample/Ametrin.Serializer.Sample.csproj" />
+  <Project Path="./Ametrin.Serializer.Test/Ametrin.Serializer.Test.csproj" />
+  <Project Path="./Ametrin.Serializer/Ametrin.Serializer.csproj" />
+</Solution>
