@@ -1,22 +1,60 @@
+using System;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 
 namespace Ametrin.Serializer;
 
 public interface IAmetrinReader
 {
-    public string ReadStringProperty(string name);
-    public int ReadInt32Property(string name);
-    public bool ReadBooleanProperty(string name);
+    public byte[] ReadBytesProperty(ReadOnlySpan<char> name);
+    public string ReadStringProperty(ReadOnlySpan<char> name);
+    public int ReadInt32Property(ReadOnlySpan<char> name);
+    public bool ReadBooleanProperty(ReadOnlySpan<char> name);
+    public DateTime ReadDateTimeProperty(ReadOnlySpan<char> name);
+    public T ReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T>;
 }
 
-public sealed class AmetrinJsonReader(JsonDocument document) : IAmetrinReader
+public sealed class AmetrinJsonReader(JsonElement document) : IAmetrinReader
 {
-    private readonly JsonDocument document = document;
+    private readonly JsonElement document = document;
 
-    public static AmetrinJsonReader Create(Stream stream) => new(JsonDocument.Parse(stream));
+    public static AmetrinJsonReader Create(Stream stream) => new(JsonDocument.Parse(stream).RootElement);
 
-    public string ReadStringProperty(string name) => document.RootElement.GetProperty(name).GetString()!;
-    public int ReadInt32Property(string name) => document.RootElement.GetProperty(name).GetInt32()!;
-    public bool ReadBooleanProperty(string name) => document.RootElement.GetProperty(name).GetBoolean();
+    public byte[] ReadBytesProperty(ReadOnlySpan<char> name) => document.GetProperty(name).GetBytesFromBase64();
+    public string ReadStringProperty(ReadOnlySpan<char> name) => document.GetProperty(name).GetString()!;
+    public int ReadInt32Property(ReadOnlySpan<char> name) => document.GetProperty(name).GetInt32();
+    public bool ReadBooleanProperty(ReadOnlySpan<char> name) => document.GetProperty(name).GetBoolean();
+    public DateTime ReadDateTimeProperty(ReadOnlySpan<char> name) => document.GetProperty(name).GetDateTime();
+
+    public T ReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T>
+    {
+        var reader = new AmetrinJsonReader(document.GetProperty(name));
+        return T.Deserialize(reader);
+    }
+}
+
+public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) : IAmetrinReader, IDisposable
+{
+    private readonly BinaryReader reader = new(stream, Encoding.UTF8, leaveOpen);
+
+    public static AmetrinJsonReader Create(Stream stream) => new(JsonDocument.Parse(stream).RootElement);
+
+    public byte[] ReadBytesProperty(ReadOnlySpan<char> name)
+    {
+        var length = reader.ReadInt32();
+        return reader.ReadBytes(length);
+    }
+
+    public string ReadStringProperty(ReadOnlySpan<char> name) => reader.ReadString();
+    public int ReadInt32Property(ReadOnlySpan<char> name) => reader.ReadInt32();
+    public bool ReadBooleanProperty(ReadOnlySpan<char> name) => reader.ReadBoolean();
+    public DateTime ReadDateTimeProperty(ReadOnlySpan<char> name) => new(reader.ReadInt64());
+
+    public T ReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T> => T.Deserialize(this);
+
+    public void Dispose()
+    {
+        reader.Dispose();
+    }
 }
