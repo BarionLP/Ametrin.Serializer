@@ -7,7 +7,7 @@ namespace Ametrin.Serializer.Generator;
 public sealed class SerializerAnalyzer : DiagnosticAnalyzer
 {
     public static readonly DiagnosticDescriptor NonVoidReturn
-        = new(id: "AS001", title: "Unsupported member type", messageFormat: "Unsupported member type! Make sure you have your own serializer registered", category: "Usage", defaultSeverity: DiagnosticSeverity.Warning, isEnabledByDefault: true);
+        = new(id: "AS001", title: "Unsupported member type", messageFormat: "Unsupported member type! Make sure you have your own serializer registered", category: "Usage", defaultSeverity: DiagnosticSeverity.Error, isEnabledByDefault: true);
 
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = [NonVoidReturn];

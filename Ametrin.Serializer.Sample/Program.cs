@@ -1,8 +1,10 @@
 ﻿using System.IO.Compression;
-using System.Security.Cryptography;
 using Ametrin.Serializer;
+using Ametrin.Serializer.Sample;
+using BenchmarkDotNet.Running;
 
-var value = new GeneratedSerialzer { Name = "Hello" };
+// var value = new GeneratedSerialzer { Name = "Hello" };
+var value = new BenchmarkData();
 
 var options = new AmetrinSerializationOptions
 {
@@ -15,7 +17,7 @@ var options = new AmetrinSerializationOptions
 
 using var stream = new MemoryStream();
 
-AmetrinSerializer.Serialize(stream, options, options);
+AmetrinSerializer.Serialize(stream, value, options);
 
 stream.Seek(0, SeekOrigin.Begin);
 
@@ -23,8 +25,9 @@ using var peakingStream = new StreamReader(AmetrinSerializer.DecryptStream(strea
 Console.WriteLine(peakingStream.ReadToEnd());
 
 stream.Seek(0, SeekOrigin.Begin);
-var newValue = AmetrinSerializer.Deserialize<AmetrinSerializationOptions>(stream, options);
-Console.WriteLine(newValue.Encryption!.Password);
+var newValue = AmetrinSerializer.Deserialize<BenchmarkData>(stream, options);
+
+BenchmarkRunner.Run<Benchmarks>();
 
 
 [GenerateSerializer()]

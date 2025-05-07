@@ -21,7 +21,15 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             var attribute = type.GetAttribute(IsGenerateSerializerAttribute)!;
             var serializeTypeInformation = attribute.ConstructorArguments[0].Value is true;
             var serializedTypeName = attribute.ConstructorArguments[1].Value as string ?? type.ToString();
-            var serializeMembers = type.GetMembers().Where(static member => member.HasAttribute(IsSerializeAttribute)).ToImmutableArray();
+            var allProperties = attribute.ConstructorArguments[2].Value is true;
+            var allFields = attribute.ConstructorArguments[3].Value is true;
+            var serializeMembers = type.GetMembers().Where(member => (allProperties && member is IPropertySymbol) || (allFields && member is IFieldSymbol) || member.HasAttribute(IsSerializeAttribute))
+                .Select(static member =>
+                {
+                    var attribute = member.GetAttribute(IsSerializeAttribute);
+                    return (symbol: member, name: member.Name, nameLower: member.Name.ToLower(), type: GetMemberType(member), converter: attribute?.ConstructorArguments[0].Value as INamedTypeSymbol);
+                })
+                .Where(member => IsSerializablePropertyType(member.type)).ToImmutableArray();
 
             if (serializeMembers.Length is 0)
             {
@@ -60,9 +68,9 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             partial {{type.TypeKind.ToString().ToLower()}} {{type.Name}} : {{(serializeTypeInformation ? "ITypedAmetrinSerializable" : "IAmetrinSerializable")}}<{{type.Name}}>
             {
                 [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-                private {{type.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{GetMemberType(member)} {member.Name.ToLower()}"))}})
+                private {{type.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{member.type} {member.nameLower}"))}})
                 {
-            {{string.Join("\n", serializeMembers.Select(member => $"\t\tthis.{member.Name} = {member.Name.ToLower()};"))}}
+            {{string.Join("\n", serializeMembers.Select(member => $"\t\tthis.{member.name} = {member.nameLower};"))}}
                 }
 
                 public static void Serialize({{type.Name}} self, IAmetrinWriter writer)
@@ -74,17 +82,13 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             }
             foreach (var member in serializeMembers)
             {
-                var infos = member.GetAttribute(IsSerializeAttribute)!;
-                var converter = infos.ConstructorArguments[0].Value as INamedTypeSymbol;
-                var memberType = GetMemberType(member);
-
-                sb.AppendLine(memberType switch
+                sb.AppendLine(member switch
                 {
-                    { } when converter is not null => $"\t\t{converter}.WriteProperty(writer, \"{member.Name}\", self.{member.Name});",
-                    { } when memberType.HasAttribute(IsGenerateSerializerAttribute) => $"\t\twriter.WriteObjectProperty(\"{member.Name}\", self.{member.Name}!);",
-                    { } when IsTypeSupportedByWriter(memberType) => $"\t\twriter.Write{memberType.Name}Property(\"{member.Name}\", self.{member.Name});",
-                    { TypeKind: TypeKind.Enum } => $"\t\twriter.WriteInt32Property(\"{member.Name}\", (int)self.{member.Name});",
-                    _ => throw new InvalidOperationException($"Unsupported member type {memberType} ({memberType!.SpecialType}) for serialization"),
+                    { converter: not null } => $"\t\t{member.converter}.WriteProperty(writer, \"{member.name}\", self.{member.name});",
+                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"\t\twriter.WriteObjectProperty(\"{member.name}\", self.{member.name}!);",
+                    { } when IsTypeSupportedByWriter(member.type) => $"\t\twriter.Write{member.type.Name}Property(\"{member.name}\", self.{member.name});",
+                    { type.TypeKind: TypeKind.Enum } => $"\t\twriter.WriteInt32Property(\"{member.name}\", (int)self.{member.name});",
+                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for serialization"),
                 });
             }
             sb.AppendLine($$"""
@@ -95,16 +99,13 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                     return new(
                         {{string.Join(",\n\t\t\t", serializeMembers.Select(member =>
                             {
-                                var infos = member.GetAttribute(IsSerializeAttribute)!;
-                                var converter = infos.ConstructorArguments[0].Value as INamedTypeSymbol;
-                                var memberType = GetMemberType(member);
-                                return memberType switch
+                                return member switch
                                 {
-                                    { } when converter is not null => $"{converter}.ReadProperty(reader, \"{member.Name}\")",
-                                    { } when memberType.HasAttribute(IsGenerateSerializerAttribute) => $"reader.ReadObjectProperty<{memberType.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.Name}\")",
-                                    { } when IsTypeSupportedByWriter(memberType) => $"reader.Read{memberType.Name}Property(\"{member.Name}\")",
-                                    { TypeKind: TypeKind.Enum } => $"({memberType}) reader.ReadInt32Property(\"{member.Name}\")",
-                                    _ => throw new InvalidOperationException($"Unsupported member type {memberType} for deserialization"),
+                                    { converter: not null } => $"{member.converter}.ReadProperty(reader, \"{member.name}\")",
+                                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.ReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
+                                    { } when IsTypeSupportedByWriter(member.type) => $"reader.Read{member.type.Name}Property(\"{member.name}\")",
+                                    { type.TypeKind: TypeKind.Enum } => $"({member.type}) reader.ReadInt32Property(\"{member.name}\")",
+                                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
                                 };
                             }))}}
                     );

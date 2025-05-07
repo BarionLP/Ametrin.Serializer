@@ -4,4 +4,4 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-AS001 | Usage | Warning | SerializerAnalyzer
+AS001 | Usage | Error | SerializerAnalyzer

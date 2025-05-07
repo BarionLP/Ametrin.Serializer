@@ -40,7 +40,11 @@ public static class AmetrinSerializer
         var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
         // using var reader = new AmetrinBinaryReader(decompressionStream ?? decryptionStream ?? input, leaveOpen: true);
 
-        return T.Deserialize(reader);
+        reader.ReadStartObject();
+        var value = T.Deserialize(reader);
+        reader.ReadEndObject();
+
+        return value;
     }
 
     public static Stream EncryptStream(Stream stream, AmetrinSerializationOptions.EncryptionOptions options)
@@ -123,7 +127,7 @@ public sealed partial class AmetrinSerializationOptions
 #pragma warning disable CS9113 // Parameter is unread.
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public sealed class GenerateSerializerAttribute(bool SerializeTypeName = false, string? TypeName = null) : Attribute;
+public sealed class GenerateSerializerAttribute(bool SerializeTypeName = false, string? TypeName = null, bool AllProperties = false, bool AllFields = false) : Attribute;
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class SerializeAttribute(Type? Converter = null) : Attribute;
