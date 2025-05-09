@@ -27,7 +27,7 @@ Console.WriteLine(peakingStream.ReadToEnd());
 stream.Seek(0, SeekOrigin.Begin);
 var newValue = AmetrinSerializer.Deserialize<BenchmarkData>(stream, options);
 
-BenchmarkRunner.Run<Benchmarks>();
+// BenchmarkRunner.Run<Benchmarks>();
 
 
 [GenerateSerializer()]

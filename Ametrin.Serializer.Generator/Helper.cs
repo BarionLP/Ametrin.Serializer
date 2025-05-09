@@ -11,6 +11,7 @@ internal static class Helper
 
     internal static bool IsGenerateSerializerAttribute(INamedTypeSymbol attribute) => attribute is { Name: "GenerateSerializerAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
     internal static bool IsSerializeAttribute(INamedTypeSymbol attribute) => attribute is { Name: "SerializeAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
+    internal static bool IsSerializationConverter(ITypeSymbol type) => type.AllInterfaces.Any(i => i is { Name: "ISerializationConverter" });
     internal static ITypeSymbol GetMemberType(ISymbol member) => member switch
     {
         IPropertySymbol property => property.Type,

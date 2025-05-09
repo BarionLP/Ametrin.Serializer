@@ -96,7 +96,7 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
     }
 }
 
-public class EnumSerializer<TEnum> : ISerializationConverter<TEnum> where TEnum : struct, Enum
+public sealed class EnumSerializer<TEnum> : ISerializationConverter<TEnum> where TEnum : struct, Enum
 {
     private static readonly FrozenDictionary<string, TEnum> values = Enum.GetValues<TEnum>().ToFrozenDictionary(static v => v.ToString(), StringComparer.OrdinalIgnoreCase);
 

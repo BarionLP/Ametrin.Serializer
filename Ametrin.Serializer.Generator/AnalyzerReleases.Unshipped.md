@@ -5,3 +5,4 @@
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 AS001 | Usage | Error | SerializerAnalyzer
+AS002 | Usage | Error | SerializerAnalyzer
