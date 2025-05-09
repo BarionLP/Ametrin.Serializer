@@ -79,6 +79,7 @@ public class Benchmarks
 internal sealed partial class BenchmarkData
 {
     private float pi { get; } = float.Pi;
+    private double pi2 { get; } = double.Pi;
     private string lorem { get; } = "lorem ipsum, with a lot more text cause stresstesting yk";
     private int value { get; } = int.MaxValue;
     private int value2 { get; } = int.MinValue;

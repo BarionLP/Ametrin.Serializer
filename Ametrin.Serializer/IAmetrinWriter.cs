@@ -13,6 +13,7 @@ public interface IAmetrinWriter
     public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value);
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value);
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value);
+    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value);
     public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value);
     public void WriteDateTimeProperty(ReadOnlySpan<char> properyName, DateTime value);
     public void WriteObjectProperty<T>(ReadOnlySpan<char> properyName, T value) where T : IAmetrinSerializable<T>;
@@ -28,6 +29,7 @@ public sealed class AmetrinJsonWriter(Stream stream, bool leaveOpen = false) : I
     public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value) => writer.WriteString(properyName, value);
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value) => writer.WriteNumber(properyName, value);
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value) => writer.WriteNumber(properyName, value);
+    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value) => writer.WriteNumber(properyName, value);
     public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value) => writer.WriteBoolean(properyName, value);
     public void WriteDateTimeProperty(ReadOnlySpan<char> properyName, DateTime value) => writer.WriteString(properyName, value);
 
@@ -76,6 +78,7 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
 
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value) => writer.Write(value);
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value) => writer.Write(value);
+    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value) => writer.Write(value);
     public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value) => writer.Write(value);
     public void WriteDateTimeProperty(ReadOnlySpan<char> properyName, DateTime value) => writer.Write(value.Ticks);
 
