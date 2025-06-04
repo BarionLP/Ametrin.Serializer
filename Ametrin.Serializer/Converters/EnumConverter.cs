@@ -20,16 +20,9 @@ public sealed class EnumConverter<TEnum> : ISerializationConverter<TEnum> where 
 
     public static Result<TEnum, DeserializationError> TryReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
     {
-        var stringResult = reader.TryReadStringProperty(name);
-        if (OptionsMarshall.TryGetError(stringResult, out var e))
-        {
-            return e;
-        }
-        if (values.TryGetValue(stringResult.OrThrow(), out var value))
-        {
-            return value;
-        }
+        return reader.TryReadStringProperty(name).Map(name, ConvertToEnum);
 
-        return DeserializationError.CreateInvalidPropertyType(name.ToString(), typeof(TEnum).Name);
+        static Result<TEnum, DeserializationError> ConvertToEnum(string stringValue, ReadOnlySpan<char> name)
+            => values.TryGetValue(stringValue, out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), typeof(TEnum).Name);
     }
 }

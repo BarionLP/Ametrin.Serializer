@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ametrin.Optional" Version="0.2.3" />
+    <PackageReference Include="Ametrin.Optional" Version="0.2.4" />
   </ItemGroup>
 
 </Project>

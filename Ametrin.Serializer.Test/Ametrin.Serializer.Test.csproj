@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Ametrin.Optional.Testing.TUnit" Version="0.2.2" />
-    <PackageReference Include="TUnit" Version="0.19.116" />
+    <PackageReference Include="Ametrin.Optional.Testing.TUnit" Version="0.2.4" />
+    <PackageReference Include="TUnit" Version="0.24.0" />
   </ItemGroup>
 
   <ItemGroup>
