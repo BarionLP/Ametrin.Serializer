@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
+using Ametrin.Serializer.Converters;
 using BenchmarkDotNet.Attributes;
 
 namespace Ametrin.Serializer.Sample;
@@ -84,7 +85,7 @@ internal sealed partial class BenchmarkData
     private int value { get; } = int.MaxValue;
     private int value2 { get; } = int.MinValue;
     public Test t1 { get; } = Test.c;
-    [Serialize(Converter: typeof(EnumSerializer<Test>))] public Test t2 = Test.v;
+    [Serialize(Converter: typeof(EnumConverter<Test>))] public Test t2 = Test.v;
     private string lorem1 { get; } = "lorem ipsum, with a lot more text cause stresstesting yk";
     private string lorem2 { get; } = "lorem ipsum, with a lot more text cause stresstesting yk";
     private string lorem3 { get; } = "lorem ipsum, with a lot more text cause stresstesting yk";

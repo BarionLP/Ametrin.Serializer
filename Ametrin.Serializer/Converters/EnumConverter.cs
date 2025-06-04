@@ -1,0 +1,35 @@
+using System;
+using System.Collections.Frozen;
+using Ametrin.Optional;
+
+namespace Ametrin.Serializer.Converters;
+
+public sealed class EnumConverter<TEnum> : ISerializationConverter<TEnum> where TEnum : struct, Enum
+{
+    private static readonly FrozenDictionary<string, TEnum> values = Enum.GetValues<TEnum>().ToFrozenDictionary(static v => v.ToString(), StringComparer.OrdinalIgnoreCase);
+
+    public static void WriteProperty(IAmetrinWriter writer, ReadOnlySpan<char> name, TEnum value)
+    {
+        writer.WriteStringProperty(name, value.ToString());
+    }
+
+    public static TEnum ReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
+    {
+        return values[reader.ReadStringProperty(name)];
+    }
+
+    public static Result<TEnum, DeserializationError> TryReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
+    {
+        var stringResult = reader.TryReadStringProperty(name);
+        if (OptionsMarshall.TryGetError(stringResult, out var e))
+        {
+            return e;
+        }
+        if (values.TryGetValue(stringResult.OrThrow(), out var value))
+        {
+            return value;
+        }
+
+        return DeserializationError.CreateInvalidPropertyType(name.ToString(), typeof(TEnum).Name);
+    }
+}

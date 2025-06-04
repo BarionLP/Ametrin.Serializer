@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using Ametrin.Optional;
 using Ametrin.Serializer;
 using Ametrin.Serializer.Sample;
 using BenchmarkDotNet.Running;
@@ -31,7 +32,7 @@ var newValue = AmetrinSerializer.Deserialize<BenchmarkData>(stream, options);
 
 
 [GenerateSerializer()]
-public sealed partial class GeneratedSerialzer
+public sealed partial class GeneratedSerializer
 {
     [Serialize] public string Name { get; init; }
     [Serialize] public int Age;

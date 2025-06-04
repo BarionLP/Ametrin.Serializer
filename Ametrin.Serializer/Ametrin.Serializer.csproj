@@ -8,7 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Ametrin.Serializer.Generator\Ametrin.Serializer.Generator.csproj" ReferenceOutputAssembly="true" OutputItemType="Analyzer"/>
+    <ProjectReference Include="..\Ametrin.Serializer.Generator\Ametrin.Serializer.Generator.csproj" ReferenceOutputAssembly="true" OutputItemType="Analyzer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ametrin.Optional" Version="0.2.3" />
   </ItemGroup>
 
 </Project>

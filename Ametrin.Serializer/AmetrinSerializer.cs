@@ -5,6 +5,10 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
+using Ametrin.Optional;
+using Ametrin.Serializer.Converters;
+using Ametrin.Serializer.Readers;
+using Ametrin.Serializer.Writers;
 
 namespace Ametrin.Serializer;
 
@@ -42,6 +46,23 @@ public static class AmetrinSerializer
 
         reader.ReadStartObject();
         var value = T.Deserialize(reader);
+        reader.ReadEndObject();
+
+        return value;
+    }
+
+    public static Result<T, DeserializationError> TryDeserialize<T>(Stream input, AmetrinSerializationOptions? options = null) where T : IAmetrinSerializable<T>
+    {
+        options ??= DefaultOptions;
+
+        using var decryptionStream = options.Encryption is null ? null : DecryptStream(input, options.Encryption);
+        using var decompressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : DecompressStream(decryptionStream ?? input);
+
+        var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
+        // using var reader = new AmetrinBinaryReader(decompressionStream ?? decryptionStream ?? input, leaveOpen: true);
+
+        reader.ReadStartObject();
+        var value = T.TryDeserialize(reader);
         reader.ReadEndObject();
 
         return value;
@@ -111,7 +132,7 @@ public static class AmetrinSerializer
 [GenerateSerializer]
 public sealed partial class AmetrinSerializationOptions
 {
-    [Serialize(Converter: typeof(EnumSerializer<CompressionLevel>))] public CompressionLevel CompressionLevel { get; init; } = CompressionLevel.NoCompression;
+    [Serialize(Converter: typeof(EnumConverter<CompressionLevel>))] public CompressionLevel CompressionLevel { get; init; } = CompressionLevel.NoCompression;
     [Serialize] public EncryptionOptions? Encryption { get; init; } = null;
 
     [GenerateSerializer]
@@ -120,7 +141,7 @@ public sealed partial class AmetrinSerializationOptions
         [Serialize] public required string Password { get; init; }
         [Serialize] public int SaltSize { get; init; } = 12;
         [Serialize] public int Iterations { get; init; } = 10_000;
-        [Serialize(Converter: typeof(HashAlgorithmSerializer))] public HashAlgorithmName HashAlgorithm { get; init; } = HashAlgorithmName.SHA3_256;
+        [Serialize(Converter: typeof(HashAlgorithmConverter))] public HashAlgorithmName HashAlgorithm { get; init; } = HashAlgorithmName.SHA3_256;
     }
 }
 
@@ -131,18 +152,3 @@ public sealed class GenerateSerializerAttribute(bool SerializeTypeName = false, 
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class SerializeAttribute(Type? Converter = null) : Attribute;
-
-#pragma warning restore CS9113 // Parameter is unread.
-
-public sealed class HashAlgorithmSerializer : ISerializationConverter<HashAlgorithmName>
-{
-    public static HashAlgorithmName ReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
-    {
-        return new HashAlgorithmName(reader.ReadStringProperty(name));
-    }
-
-    public static void WriteProperty(IAmetrinWriter writer, ReadOnlySpan<char> name, HashAlgorithmName value)
-    {
-        writer.WriteStringProperty(name, value.Name);
-    }
-}
