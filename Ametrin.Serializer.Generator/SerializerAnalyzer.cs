@@ -8,7 +8,7 @@ namespace Ametrin.Serializer.Generator;
 public sealed class SerializerAnalyzer : DiagnosticAnalyzer
 {
     public static readonly DiagnosticDescriptor UnsupportedMemberType
-        = new(id: "AS001", title: "Unsupported member type", messageFormat: "Unsupported member type! Make sure you have your own serializer registered", category: "Usage", defaultSeverity: DiagnosticSeverity.Error, isEnabledByDefault: true);
+        = new(id: "AS001", title: "Unsupported member type", messageFormat: "Unsupported member type! Set a custom converter or generate a serializer", category: "Usage", defaultSeverity: DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     public static readonly DiagnosticDescriptor InvalidConverter
         = new(id: "AS002", title: "Invalid Converter", messageFormat: "Invalid Converter, all converters have to implement ISerializationConverter", category: "Usage", defaultSeverity: DiagnosticSeverity.Error, isEnabledByDefault: true);
@@ -33,7 +33,7 @@ public sealed class SerializerAnalyzer : DiagnosticAnalyzer
                     context.ReportDiagnostic(Diagnostic.Create(UnsupportedMemberType, context.Symbol.Locations[0]));
                 }
             }
-            else if(!IsSerializationConverter((attribute.ConstructorArguments[0].Value as INamedTypeSymbol)!))
+            else if (!IsSerializationConverter((attribute.ConstructorArguments[0].Value as INamedTypeSymbol)!))
             {
                 var syntax = attribute.ApplicationSyntaxReference!.GetSyntax(context.CancellationToken) as AttributeSyntax;
                 var location = syntax!.ArgumentList!.Arguments[0].GetLocation();

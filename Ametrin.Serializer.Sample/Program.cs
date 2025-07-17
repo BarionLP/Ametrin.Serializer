@@ -1,5 +1,4 @@
 ﻿using System.IO.Compression;
-using Ametrin.Optional;
 using Ametrin.Serializer;
 using Ametrin.Serializer.Sample;
 using BenchmarkDotNet.Running;
@@ -30,8 +29,7 @@ var newValue = AmetrinSerializer.Deserialize<BenchmarkData>(stream, options);
 
 // BenchmarkRunner.Run<Benchmarks>();
 
-
-[GenerateSerializer()]
+[GenerateSerializer]
 public sealed partial class GeneratedSerializer
 {
     [Serialize] public string Name { get; init; }
@@ -39,3 +37,6 @@ public sealed partial class GeneratedSerializer
     [Serialize] public bool Alive;
     [Serialize] public DateTime Created { get; } = DateTime.Now;
 }
+
+[GenerateSerializer(AllProperties: true)]
+public partial record struct TestRecord(Guid ID, string Name, GeneratedSerializer Nested);

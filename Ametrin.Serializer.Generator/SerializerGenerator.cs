@@ -12,7 +12,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
     {
         var nodes = context.SyntaxProvider.ForAttributeWithMetadataName(
             "Ametrin.Serializer.GenerateSerializerAttribute",
-            static (node, _) => node is ClassDeclarationSyntax or StructDeclarationSyntax,
+            static (node, _) => node is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax,
             static (ctx, cancellationToken) => (INamedTypeSymbol)ctx.SemanticModel.GetDeclaredSymbol(ctx.TargetNode, cancellationToken)!
         );
 
@@ -67,7 +67,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             }
             
             sb.AppendLine($$"""
-            partial {{type.TypeKind.ToString().ToLower()}} {{type.Name}} : {{(serializeTypeInformation ? "ITypedAmetrinSerializable" : "IAmetrinSerializable")}}<{{type.Name}}>
+            partial {{(type.IsRecord ? "record " : "")}}{{type.TypeKind.ToString().ToLower()}} {{type.Name}} : {{(serializeTypeInformation ? "ITypedAmetrinSerializable" : "IAmetrinSerializable")}}<{{type.Name}}>
             {
                 [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
                 private {{type.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{member.type} {member.nameLower}"))}})
@@ -123,18 +123,18 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             foreach (var member in serializeMembers)
             {
                 sb.AppendLine($$"""
-                var {{member.nameLower}}Result = {{member switch
-                {
-                    { converter: not null } => $"{member.converter}.TryReadProperty(reader, \"{member.name}\")",
-                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.TryReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
-                    { } when IsTypeSupportedByWriter(member.type) => $"reader.TryRead{member.type.Name}Property(\"{member.name}\")",
-                    { type.TypeKind: TypeKind.Enum } => $"({member.type}) reader.TryReadInt32Property(\"{member.name}\")",
-                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
-                }}};
-                if (!OptionsMarshall.TryGetValue({{member.nameLower}}Result, out var {{member.nameLower}}))
-                {
-                    return OptionsMarshall.GetError({{member.nameLower}}Result);
-                }
+                    var {{member.nameLower}}Result = {{member switch
+                    {
+                        { converter: not null } => $"{member.converter}.TryReadProperty(reader, \"{member.name}\")",
+                        { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.TryReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
+                        { } when IsTypeSupportedByWriter(member.type) => $"reader.TryRead{member.type.Name}Property(\"{member.name}\")",
+                        { type.TypeKind: TypeKind.Enum } => $"reader.TryReadInt32Property(\"{member.name}\").Map(static v => ({member.type}) v)",
+                        _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
+                    }}};
+                    if (!OptionsMarshall.TryGetValue({{member.nameLower}}Result, out var {{member.nameLower}}))
+                    {
+                        return OptionsMarshall.GetError({{member.nameLower}}Result);
+                    }
 
             """);
             }
