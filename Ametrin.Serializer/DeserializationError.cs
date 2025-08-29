@@ -16,7 +16,7 @@ public readonly record struct DeserializationError(DeserializationError.Kind Typ
         _ => throw new UnreachableException("Unknown DeserializationError"),
     };
 
-    [DoesNotReturn]
+    [DoesNotReturn, StackTraceHidden]
     public void Throw() => throw new InvalidOperationException(CreateDescription());
 
     public static DeserializationError CreateInvalidType(string expectedType) => new (Kind.InvalidType, null, expectedType);

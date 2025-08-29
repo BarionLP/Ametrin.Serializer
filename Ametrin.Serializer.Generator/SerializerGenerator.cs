@@ -65,7 +65,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sb.AppendLine($"partial class {containingType.Name}");
                 sb.AppendLine("{");
             }
-            
+
             sb.AppendLine($$"""
             partial {{(type.IsRecord ? "record " : "")}}{{type.TypeKind.ToString().ToLower()}} {{type.Name}} : {{(serializeTypeInformation ? "ITypedAmetrinSerializable" : "IAmetrinSerializable")}}<{{type.Name}}>
             {
@@ -118,22 +118,24 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
                 public static Result<{{type.Name}}, DeserializationError> TryDeserialize(IAmetrinReader reader)
                 {
+                    DeserializationError error = default;
+                    
             """);
 
             foreach (var member in serializeMembers)
             {
                 sb.AppendLine($$"""
                     var {{member.nameLower}}Result = {{member switch
+                {
+                    { converter: not null } => $"{member.converter}.TryReadProperty(reader, \"{member.name}\")",
+                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.TryReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
+                    { } when IsTypeSupportedByWriter(member.type) => $"reader.TryRead{member.type.Name}Property(\"{member.name}\")",
+                    { type.TypeKind: TypeKind.Enum } => $"reader.TryReadInt32Property(\"{member.name}\").Map(static v => ({member.type}) v)",
+                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
+                }}};
+                    if (!{{member.nameLower}}Result.Branch(out var {{member.nameLower}}, out error))
                     {
-                        { converter: not null } => $"{member.converter}.TryReadProperty(reader, \"{member.name}\")",
-                        { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.TryReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
-                        { } when IsTypeSupportedByWriter(member.type) => $"reader.TryRead{member.type.Name}Property(\"{member.name}\")",
-                        { type.TypeKind: TypeKind.Enum } => $"reader.TryReadInt32Property(\"{member.name}\").Map(static v => ({member.type}) v)",
-                        _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
-                    }}};
-                    if (!OptionsMarshall.TryGetValue({{member.nameLower}}Result, out var {{member.nameLower}}))
-                    {
-                        return OptionsMarshall.GetError({{member.nameLower}}Result);
+                        return error;
                     }
 
             """);
