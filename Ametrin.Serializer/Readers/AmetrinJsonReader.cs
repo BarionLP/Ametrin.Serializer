@@ -26,12 +26,7 @@ public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
             return DeserializationError.CreatePropertyNotFound(name.ToString());
         }
         var reader = new AmetrinJsonReader(property);
-        var result = T.TryDeserialize(reader);
-        if (OptionsMarshall.TryGetError(result, out var e))
-        {
-            return new DeserializationError(e.Type, $"{name}.{e.PropertyName}", e.ExpectedType);
-        }
-        return result;
+        return T.TryDeserialize(reader).MapError(name, static (error, name) => error with { PropertyName = $"{name}.{error.PropertyName}" });
     }
 
     public byte[] ReadBytesProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetBytesFromBase64();
