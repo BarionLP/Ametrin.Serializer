@@ -70,22 +70,28 @@ public static class AmetrinSerializer
 
     public static Stream EncryptStream(Stream stream, AmetrinSerializationOptions.EncryptionOptions options)
     {
-        using var derive = new Rfc2898DeriveBytes(options.Password, options.SaltSize, options.Iterations, options.HashAlgorithm);
-        stream.Write(derive.Salt);
+        Span<byte> salt = stackalloc byte[options.SaltSize];
+        RandomNumberGenerator.Fill(salt);
+
         using var aes = Aes.Create();
-        aes.Key = derive.GetBytes(aes.KeySize / 8);
-        aes.IV = derive.GetBytes(aes.BlockSize / 8);
+        Rfc2898DeriveBytes.Pbkdf2(options.Password, salt, destination: aes.Key, options.Iterations, options.HashAlgorithm);
+        aes.GenerateIV();
+
+        stream.Write(salt);
+        stream.Write(aes.IV);
+        
         return new CryptoStream(stream, aes.CreateEncryptor(), CryptoStreamMode.Write, leaveOpen: true);
     }
 
     public static Stream DecryptStream(Stream stream, AmetrinSerializationOptions.EncryptionOptions options)
     {
-        var salt = new byte[options.SaltSize];
+        Span<byte> salt = stackalloc byte[options.SaltSize];
         stream.ReadExactly(salt);
-        using var derive = new Rfc2898DeriveBytes(options.Password, salt, options.Iterations, options.HashAlgorithm);
+
         using var aes = Aes.Create();
-        aes.Key = derive.GetBytes(aes.KeySize / 8);
-        aes.IV = derive.GetBytes(aes.BlockSize / 8);
+        stream.ReadExactly(aes.IV);
+        Rfc2898DeriveBytes.Pbkdf2(options.Password, salt, destination: aes.Key, options.Iterations, options.HashAlgorithm);
+
         return new CryptoStream(stream, aes.CreateDecryptor(), CryptoStreamMode.Read, leaveOpen: true);
     }
 
@@ -98,7 +104,6 @@ public static class AmetrinSerializer
     {
         return new ZLibStream(stream, CompressionMode.Decompress, leaveOpen: true);
     }
-
 
     private static readonly Dictionary<string, Func<IAmetrinReader, object>> knownTypes = [];
 
