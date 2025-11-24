@@ -19,6 +19,9 @@ public readonly record struct DeserializationError(DeserializationError.Kind Typ
     [DoesNotReturn, StackTraceHidden]
     public void Throw() => throw new InvalidOperationException(CreateDescription());
 
+    [DoesNotReturn, StackTraceHidden]
+    public T Throw<T>() => throw new InvalidOperationException(CreateDescription());
+
     public static DeserializationError CreateInvalidType(string expectedType) => new (Kind.InvalidType, null, expectedType);
     public static DeserializationError CreatePropertyNotFound(string propertyName) => new (Kind.PropertyNotFound, propertyName, null);
     public static DeserializationError CreateInvalidPropertyType(string propertyName, string expectedType) => new (Kind.InvalidPropertyType, propertyName, expectedType);

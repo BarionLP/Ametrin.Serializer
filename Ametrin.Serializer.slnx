@@ -3,4 +3,5 @@
   <Project Path="./Ametrin.Serializer.Sample/Ametrin.Serializer.Sample.csproj" />
   <Project Path="./Ametrin.Serializer.Test/Ametrin.Serializer.Test.csproj" />
   <Project Path="./Ametrin.Serializer/Ametrin.Serializer.csproj" />
+  <Project Path="Ametrin.Serializer.NBT/Ametrin.Serializer.NBT.csproj" />
 </Solution>
