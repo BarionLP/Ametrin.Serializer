@@ -7,6 +7,7 @@ public interface IAmetrinWriter
     public void WriteBytesProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<byte> value);
     public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value);
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value);
+    public void WriteHalfProperty(ReadOnlySpan<char> properyName, Half value);
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value);
     public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value);
     public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value);

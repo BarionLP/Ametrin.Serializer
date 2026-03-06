@@ -11,6 +11,7 @@ public sealed class AmetrinJsonWriter(Stream stream, bool leaveOpen = false) : I
     public void WriteBytesProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<byte> value) => writer.WriteBase64String(properyName, value);
     public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value) => writer.WriteString(properyName, value);
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value) => writer.WriteNumber(properyName, value);
+    public void WriteHalfProperty(ReadOnlySpan<char> properyName, Half value) => writer.WriteNumber(properyName, (float)value);
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value) => writer.WriteNumber(properyName, value);
     public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value) => writer.WriteNumber(properyName, value);
     public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value) => writer.WriteBoolean(properyName, value);

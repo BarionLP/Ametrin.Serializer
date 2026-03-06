@@ -21,6 +21,7 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
     }
 
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value) => writer.Write(value);
+    public void WriteHalfProperty(ReadOnlySpan<char> properyName, Half value) => writer.Write(value);
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value) => writer.Write(value);
     public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value) => writer.Write(value);
     public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value) => writer.Write(value);

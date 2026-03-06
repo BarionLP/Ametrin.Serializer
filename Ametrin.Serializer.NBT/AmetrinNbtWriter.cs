@@ -22,22 +22,28 @@ public sealed class AmetrinNbtWriter(CompoundTag tag) : IAmetrinWriter
         tag.Value[name] = new LongTag(name, value.Ticks);
     }
 
-    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value)
-    {
-        var name = properyName.ToString();
-        tag.Value[name] = new DoubleTag(name, value);
-    }
-
     public void WriteInt32Property(ReadOnlySpan<char> properyName, int value)
     {
         var name = properyName.ToString();
         tag.Value[name] = new IntTag(name, value);
     }
 
+    public void WriteHalfProperty(ReadOnlySpan<char> properyName, Half value)
+    {
+        var name = properyName.ToString();
+        tag.Value[name] = new FloatTag(name, (float)value);
+    }
+
     public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value)
     {
         var name = properyName.ToString();
         tag.Value[name] = new FloatTag(name, value);
+    }
+
+    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value)
+    {
+        var name = properyName.ToString();
+        tag.Value[name] = new DoubleTag(name, value);
     }
 
     public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value)

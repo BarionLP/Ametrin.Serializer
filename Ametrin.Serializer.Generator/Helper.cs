@@ -7,11 +7,13 @@ internal static class Helper
         return IsTypeSupportedByWriter(typeSymbol) || typeSymbol.TypeKind is TypeKind.Enum || typeSymbol.HasAttribute(IsGenerateSerializerAttribute);
     }
 
-    internal static bool IsTypeSupportedByWriter(ITypeSymbol type) => type.SpecialType is SpecialType.System_String or SpecialType.System_Int32 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_DateTime;
+    internal static bool IsTypeSupportedByWriter(ITypeSymbol type)
+        => type.SpecialType is SpecialType.System_String or SpecialType.System_Int32 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Boolean or SpecialType.System_DateTime
+        || type is { Name: "Half", ContainingAssembly.Name: "System" };
 
     internal static bool IsGenerateSerializerAttribute(INamedTypeSymbol attribute) => attribute is { Name: "GenerateSerializerAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
     internal static bool IsSerializeAttribute(INamedTypeSymbol attribute) => attribute is { Name: "SerializeAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
-    internal static bool IsSerializationConverter(ITypeSymbol type) => type.AllInterfaces.Any(i => i is { Name: "ISerializationConverter" });
+    internal static bool IsSerializationConverter(ITypeSymbol type) => type.AllInterfaces.Any(i => i is { Name: "ISerializationConverter", ContainingAssembly.Name: "Ametrin.Serializer" });
     internal static ITypeSymbol GetMemberType(ISymbol member) => member switch
     {
         IPropertySymbol property => property.Type,

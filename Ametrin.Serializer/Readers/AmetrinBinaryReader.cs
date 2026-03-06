@@ -18,6 +18,7 @@ public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) :
 
     public Result<string, DeserializationError> TryReadStringProperty(ReadOnlySpan<char> name) => reader.ReadString();
     public Result<int, DeserializationError> TryReadInt32Property(ReadOnlySpan<char> name) => reader.ReadInt32();
+    public Result<Half, DeserializationError> TryReadHalfProperty(ReadOnlySpan<char> name) => reader.ReadHalf();
     public Result<float, DeserializationError> TryReadSingleProperty(ReadOnlySpan<char> name) => reader.ReadSingle();
     public Result<double, DeserializationError> TryReadDoubleProperty(ReadOnlySpan<char> name) => reader.ReadDouble();
     public Result<bool, DeserializationError> TryReadBooleanProperty(ReadOnlySpan<char> name) => reader.ReadBoolean();
