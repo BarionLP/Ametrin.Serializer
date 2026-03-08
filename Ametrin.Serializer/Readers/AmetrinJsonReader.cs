@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
 using Ametrin.Optional;
@@ -8,43 +9,57 @@ namespace Ametrin.Serializer.Readers;
 public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
 {
     private readonly JsonElement element = element;
+    private JsonElement? currentProperty = null;
 
     public static AmetrinJsonReader Create(Stream stream) => new(JsonDocument.Parse(stream).RootElement);
 
-    public Result<byte[], DeserializationError> TryReadBytesProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.TryGetBytesFromBase64(out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), "Byte[]") : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<string, DeserializationError> TryReadStringProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.ValueKind is JsonValueKind.String ? property.GetString()! : DeserializationError.CreateInvalidPropertyType(name.ToString(), "String") : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<int, DeserializationError> TryReadInt32Property(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.TryGetInt32(out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), "Int32") : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<Half, DeserializationError> TryReadHalfProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.TryGetSingle(out var value) ? (Half)value : DeserializationError.CreateInvalidPropertyType(name.ToString(), "Half") : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<float, DeserializationError> TryReadSingleProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.TryGetSingle(out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), "Single") : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<double, DeserializationError> TryReadDoubleProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.TryGetDouble(out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), "Double") : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<bool, DeserializationError> TryReadBooleanProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => DeserializationError.CreateInvalidPropertyType(name.ToString(), "Boolean") } : DeserializationError.CreatePropertyNotFound(name.ToString());
-    public Result<DateTime, DeserializationError> TryReadDateTimeProperty(ReadOnlySpan<char> name) => element.TryGetProperty(name, out var property) ? property.TryGetDateTime(out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), "DateTime") : DeserializationError.CreatePropertyNotFound(name.ToString());
-
-    public Result<T, DeserializationError> TryReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T>
+    public ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name)
     {
-        if (!element.TryGetProperty(name, out var property))
+        if (element.TryGetProperty(name, out var prop))
         {
-            return DeserializationError.CreatePropertyNotFound(name.ToString());
+            currentProperty = prop;
+            return default;
         }
-        var reader = new AmetrinJsonReader(property);
-        return T.TryDeserialize(reader).MapError(name, static (error, name) => error with { PropertyName = $"{name}.{error.PropertyName}" });
+        return DeserializationError.CreatePropertyNotFound(name.ToString());
     }
 
-    public byte[] ReadBytesProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetBytesFromBase64();
-    public string ReadStringProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetString()!;
-    public int ReadInt32Property(ReadOnlySpan<char> name) => element.GetProperty(name).GetInt32();
-    public Half ReadHalfProperty(ReadOnlySpan<char> name) => (Half)element.GetProperty(name).GetSingle();
-    public float ReadSingleProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetSingle();
-    public double ReadDoubleProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetDouble();
-    public bool ReadBooleanProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetBoolean();
-    public DateTime ReadDateTimeProperty(ReadOnlySpan<char> name) => element.GetProperty(name).GetDateTime();
+    public Result<string, DeserializationError> TryReadStringValue() => TryGet<string>("String", static (property, [MaybeNullWhen(false)] out value) => Option.Success(property).Require(static p => p.ValueKind is JsonValueKind.String).Map(static p => p.GetString()).Branch(out value));
+    public Result<byte[], DeserializationError> TryReadBytesValue() => TryGet<byte[]>("Byte[]", static (property, [MaybeNullWhen(false)] out value) => property.TryGetBytesFromBase64(out value));
+    public Result<int, DeserializationError> TryReadInt32Value() => TryGet<int>("Int32", static (property, out value) => property.TryGetInt32(out value));
+    public Result<Half, DeserializationError> TryReadHalfValue() => TryGet<float>("Half", static (property, out value) => property.TryGetSingle(out value)).Map(static f => (Half)f);
+    public Result<float, DeserializationError> TryReadSingleValue() => TryGet<float>("Single", static (property, out value) => property.TryGetSingle(out value));
+    public Result<double, DeserializationError> TryReadDoubleValue() => TryGet<double>("Double", static (property, out value) => property.TryGetDouble(out value));
+    public Result<bool, DeserializationError> TryReadBooleanValue() => GetCurrentProperty().ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => DeserializationError.CreateInvalidPropertyType("<todo>", "Boolean") };
+    public Result<DateTime, DeserializationError> TryReadDateTimeValue() => TryGet<DateTime>("DateTime", static (property, out value) => property.TryGetDateTime(out value));
 
-    public T ReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T>
+    private delegate bool TryGetDelegate<T>(JsonElement element, [MaybeNullWhen(false)] out T result);
+    private Result<T, DeserializationError> TryGet<T>(string type, TryGetDelegate<T> getter)
     {
-        var reader = new AmetrinJsonReader(element.GetProperty(name));
-        return T.Deserialize(reader);
+        var current = GetCurrentProperty();
+        if (getter(current, out var result))
+        {
+            return result;
+        }
+        return DeserializationError.CreateInvalidPropertyType("<todo>", type);
     }
 
-    public void ReadStartObject() { }
+
+    private JsonElement GetCurrentProperty()
+    {
+        if (currentProperty is { } current)
+        {
+            currentProperty = null;
+            return current;
+        }
+        else
+        {
+            throw new InvalidOperationException();
+        }
+    }
+
+    public IAmetrinReader ReadStartObject() => new AmetrinJsonReader(GetCurrentProperty());
     public void ReadEndObject() { }
+
+    public void ReadStartArray() { }
+    public void ReadEndArray() { }
 }

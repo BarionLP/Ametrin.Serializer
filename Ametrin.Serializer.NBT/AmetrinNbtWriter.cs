@@ -2,64 +2,81 @@
 
 public sealed class AmetrinNbtWriter(CompoundTag tag) : IAmetrinWriter
 {
-    private readonly CompoundTag tag = tag;
+    private readonly CompoundTag root = tag;
+    private string? currentPropertyName;
+    private readonly Stack<CompoundTag> stack = [];
+    private CompoundTag currentTag = tag;
 
-    public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value)
+    public void WritePropertyName(ReadOnlySpan<char> propertyName)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new SbyteTag(name, (sbyte)(value ? 1 : 0));
+        currentPropertyName = propertyName.ToString();
     }
 
-    public void WriteBytesProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<byte> value)
+    public void WriteBooleanValue(bool value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new ByteArrayTag(name, [.. value]);
+        WriteTagValue(value, static (n, v) => new SbyteTag(n, (sbyte)(v ? 1 : 0)));
     }
 
-    public void WriteDateTimeProperty(ReadOnlySpan<char> properyName, DateTime value)
+    public void WriteBytesValue(ReadOnlySpan<byte> value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new LongTag(name, value.Ticks);
+        WriteTagValue(value, static (n, v) => new ByteArrayTag(n, [.. v]));
     }
 
-    public void WriteInt32Property(ReadOnlySpan<char> properyName, int value)
+    public void WriteDateTimeValue(DateTime value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new IntTag(name, value);
+        WriteTagValue(value.Ticks, static (n, v) => new LongTag(n, v));
     }
 
-    public void WriteHalfProperty(ReadOnlySpan<char> properyName, Half value)
+    public void WriteInt32Value(int value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new FloatTag(name, (float)value);
+        WriteTagValue(value, static (n, v) => new IntTag(n, v));
     }
 
-    public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value)
+    public void WriteHalfValue(Half value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new FloatTag(name, value);
+        WriteSingleValue((float)value);
     }
 
-    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value)
+    public void WriteSingleValue(float value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new DoubleTag(name, value);
+        WriteTagValue(value, static (n, v) => new FloatTag(n, v));
     }
 
-    public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value)
+    public void WriteDoubleValue(double value)
     {
-        var name = properyName.ToString();
-        tag.Value[name] = new StringTag(name, value.ToString());
+        WriteTagValue(value, static (n, v) => new DoubleTag(n, v));
     }
 
-    public void WriteObjectProperty<T>(ReadOnlySpan<char> properyName, T value) where T : IAmetrinSerializable<T>
+    public void WriteStringValue(ReadOnlySpan<char> value)
     {
-        var name = properyName.ToString();
-        var writer = new AmetrinNbtWriter(new(name, []));
-        T.Serialize(value, writer);
-        tag.Value[name] = writer.tag;
+        WriteTagValue(value, static (n, v) => new StringTag(n, v.ToString()));
     }
 
-    public void WriteStartObject() { }
-    public void WriteEndObject() { }
+    public void WriteTagValue<T>(T value, Func<string, T, Tag> tag)
+        where T : allows ref struct
+    {
+        if (currentPropertyName is null) throw new InvalidOperationException();
+        currentTag.Value[currentPropertyName] = tag(currentPropertyName, value);
+        currentPropertyName = null;
+    }
+
+    public void WriteStartObject()
+    {
+        if (currentPropertyName is null) throw new InvalidOperationException();
+        stack.Push(currentTag);
+        currentTag = new(currentPropertyName, []);
+        currentPropertyName = null;
+    }
+
+    public void WriteEndObject()
+    {
+        if (!stack.TryPop(out var cur))
+        {
+            throw new InvalidOperationException();
+        }
+        currentTag = cur;
+    }
+
+    public void WriteStartArray(int length) => throw new NotImplementedException();
+    public void WriteEndArray() => throw new NotImplementedException();
 }

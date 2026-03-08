@@ -8,31 +8,22 @@ public sealed class AmetrinJsonWriter(Stream stream, bool leaveOpen = false) : I
 {
     private readonly Utf8JsonWriter writer = new(stream);
 
-    public void WriteBytesProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<byte> value) => writer.WriteBase64String(properyName, value);
-    public void WriteStringProperty(ReadOnlySpan<char> properyName, ReadOnlySpan<char> value) => writer.WriteString(properyName, value);
-    public void WriteInt32Property(ReadOnlySpan<char> properyName, int value) => writer.WriteNumber(properyName, value);
-    public void WriteHalfProperty(ReadOnlySpan<char> properyName, Half value) => writer.WriteNumber(properyName, (float)value);
-    public void WriteSingleProperty(ReadOnlySpan<char> properyName, float value) => writer.WriteNumber(properyName, value);
-    public void WriteDoubleProperty(ReadOnlySpan<char> properyName, double value) => writer.WriteNumber(properyName, value);
-    public void WriteBooleanProperty(ReadOnlySpan<char> properyName, bool value) => writer.WriteBoolean(properyName, value);
-    public void WriteDateTimeProperty(ReadOnlySpan<char> properyName, DateTime value) => writer.WriteString(properyName, value);
-
-    public void WriteObjectProperty<T>(ReadOnlySpan<char> properyName, T value) where T : IAmetrinSerializable<T>
-    {
-        if (value is null)
-        {
-            writer.WriteNull(properyName);
-            return;
-        }
-
-        writer.WritePropertyName(properyName);
-        WriteStartObject();
-        T.Serialize(value, this);
-        WriteEndObject();
-    }
+    public void WritePropertyName(ReadOnlySpan<char> name) => writer.WritePropertyName(name);
+    
+    public void WriteBytesValue(ReadOnlySpan<byte> value) => writer.WriteBase64StringValue(value);
+    public void WriteStringValue(ReadOnlySpan<char> value) => writer.WriteStringValue(value);
+    public void WriteInt32Value(int value) => writer.WriteNumberValue(value);
+    public void WriteHalfValue(Half value) => writer.WriteNumberValue((float)value);
+    public void WriteSingleValue(float value) => writer.WriteNumberValue(value);
+    public void WriteDoubleValue(double value) => writer.WriteNumberValue(value);
+    public void WriteBooleanValue(bool value) => writer.WriteBooleanValue(value);
+    public void WriteDateTimeValue(DateTime value) => writer.WriteStringValue(value);
 
     public void WriteStartObject() => writer.WriteStartObject();
     public void WriteEndObject() => writer.WriteEndObject();
+
+    public void WriteStartArray(int length) => writer.WriteStartArray();
+    public void WriteEndArray() => writer.WriteEndArray();
 
     public void Dispose()
     {
