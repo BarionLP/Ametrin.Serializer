@@ -5,7 +5,7 @@ using Ametrin.Optional;
 
 namespace Ametrin.Serializer.Readers;
 
-public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) : IAmetrinReader, IDisposable
+public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) : IAmetrinReader
 {
     private readonly BinaryReader reader = new(stream, Encoding.UTF8, leaveOpen);
 

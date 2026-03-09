@@ -62,4 +62,6 @@ public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
 
     public void ReadStartArray() { }
     public void ReadEndArray() { }
+
+    public void Dispose() { }
 }

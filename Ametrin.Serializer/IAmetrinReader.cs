@@ -3,7 +3,7 @@ using Ametrin.Optional;
 
 namespace Ametrin.Serializer;
 
-public interface IAmetrinReader
+public interface IAmetrinReader : IDisposable
 {
     public ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name);
 
@@ -32,10 +32,9 @@ public static class AmetrinReaderExtensions
 
         public Result<T, DeserializationError> TryReadObjectValue<T>() where T : IAmetrinSerializable<T>
         {
-            var sub = reader.ReadStartObject();
+            using var sub = reader.ReadStartObject();
             var result = T.Deserialize(sub);
             reader.ReadEndObject();
-            if (sub is IDisposable disposable) disposable.Dispose();
             return result;
         }
 
@@ -48,7 +47,7 @@ public static class AmetrinReaderExtensions
         public Result<bool, DeserializationError> TryReadBooleanProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadBooleanValue);
         public Result<DateTime, DeserializationError> TryReadDateTimeProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadDateTimeValue);
 
-        public void ReadProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyName(name).Consume(error: static e => e.Throw());
+        public void ReadPropertyName(ReadOnlySpan<char> name) => reader.TryReadPropertyName(name).Consume(error: static e => e.Throw());
         public byte[] ReadBytesProperty(ReadOnlySpan<char> name) => reader.TryReadBytesProperty(name).Or(static e => e.Throw<byte[]>());
         public string ReadStringProperty(ReadOnlySpan<char> name) => reader.TryReadStringProperty(name).Or(static e => e.Throw<string>());
         public int ReadInt32Property(ReadOnlySpan<char> name) => reader.TryReadInt32Property(name).Or(static e => e.Throw<int>());

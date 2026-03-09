@@ -52,4 +52,6 @@ public sealed class AmetrinNbtReader(CompoundTag tag) : IAmetrinReader
         currentTag = null;
         return tag;
     }
+
+    public void Dispose() { }
 }
