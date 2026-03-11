@@ -19,7 +19,7 @@ public interface IAmetrinReader : IDisposable
     public IAmetrinReader ReadStartObject();
     public void ReadEndObject();
 
-    public void ReadStartArray();
+    public int ReadStartArray();
     public void ReadEndArray();
 }
 
@@ -30,12 +30,36 @@ public static class AmetrinReaderExtensions
         public Result<T, DeserializationError> TryReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T>
             => reader.TryReadProperty(name, reader.TryReadObjectValue<T>).MapError(name, static (e, name) => e with { PropertyName = $"{name}.{e.PropertyName}" });
 
-        public Result<T, DeserializationError> TryReadObjectValue<T>() where T : IAmetrinSerializable<T>
+        public Result<T, DeserializationError> TryReadObjectValue<T>() where T : ISerializationConverter<T>
         {
             using var sub = reader.ReadStartObject();
-            var result = T.Deserialize(sub);
+            var result = T.TryReadValue(sub);
             reader.ReadEndObject();
             return result;
+        }
+
+        public Result<T[], DeserializationError> TryReadArrayValue<T>() where T : IAmetrinSerializable<T>
+        {
+            return reader.TryReadArrayValue(T.TryDeserialize);
+        }
+
+        public Result<T[], DeserializationError> TryReadArrayValue<T>(Func<IAmetrinReader, Result<T, DeserializationError>> read)
+        {
+            var length = reader.ReadStartArray();
+            var items = new T[length];
+            for (var i = 0; i < length; i++)
+            {
+                if (read(reader).Branch(out var result, out var error))
+                {
+                    items[i] = result;
+                }
+                else
+                {
+                    return error;
+                }
+            }
+            reader.ReadEndArray();
+            return items;
         }
 
         public Result<byte[], DeserializationError> TryReadBytesProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadBytesValue);

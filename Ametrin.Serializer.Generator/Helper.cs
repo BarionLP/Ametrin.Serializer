@@ -12,8 +12,10 @@ internal static class Helper
         || type is { Name: "Half", ContainingAssembly.Name: "System" };
 
     internal static bool IsGenerateSerializerAttribute(INamedTypeSymbol attribute) => attribute is { Name: "GenerateSerializerAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
+    internal static bool IsGeneratedConverterAttribute(INamedTypeSymbol attribute) => attribute is { Name: "GeneratedConverterAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
     internal static bool IsSerializeAttribute(INamedTypeSymbol attribute) => attribute is { Name: "SerializeAttribute", ContainingAssembly.Name: "Ametrin.Serializer" };
-    internal static bool IsSerializationConverter(ITypeSymbol type) => type.AllInterfaces.Any(i => i is { Name: "ISerializationConverter", ContainingAssembly.Name: "Ametrin.Serializer" });
+    internal static bool IsSerializationConverter(ITypeSymbol type) => type.AllInterfaces.Any(IsISerializationConverter);
+    internal static bool IsISerializationConverter(INamedTypeSymbol? type) => type is { Name: "ISerializationConverter", ContainingAssembly.Name: "Ametrin.Serializer", TypeParameters.Length: 1 };
     internal static ITypeSymbol GetMemberType(ISymbol member) => member switch
     {
         IPropertySymbol property => property.Type,

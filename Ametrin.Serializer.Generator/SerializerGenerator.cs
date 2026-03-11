@@ -11,26 +11,26 @@ public sealed class SerializerGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var nodes = context.SyntaxProvider.ForAttributeWithMetadataName(
-            "Ametrin.Serializer.GenerateSerializerAttribute",
+            "Ametrin.Serializer.GeneratedConverterAttribute",
             static (node, _) => node is ClassDeclarationSyntax or StructDeclarationSyntax or RecordDeclarationSyntax,
             static (ctx, cancellationToken) => (INamedTypeSymbol)ctx.SemanticModel.GetDeclaredSymbol(ctx.TargetNode, cancellationToken)!
         );
 
-        context.RegisterSourceOutput(nodes, static (context, type) =>
+        context.RegisterSourceOutput(nodes, static (context, converterType) =>
         {
-            var attribute = type.GetAttribute(IsGenerateSerializerAttribute)!;
-            var serializeTypeInformation = attribute.ConstructorArguments[0].Value is true;
-            var serializedTypeName = attribute.ConstructorArguments[1].Value as string ?? type.ToString();
-            var allProperties = attribute.ConstructorArguments[2].Value is true;
-            var allFields = attribute.ConstructorArguments[3].Value is true;
+            var attribute = converterType.GetAttribute(IsGeneratedConverterAttribute)!;
+            var targetType = converterType.AllInterfaces.Single(IsISerializationConverter).TypeArguments[0];
+            var serializedTypeName = attribute.ConstructorArguments[0].Value as string ?? targetType.ToString();
+            var allProperties = attribute.ConstructorArguments[1].Value is true;
+            var allFields = attribute.ConstructorArguments[2].Value is true;
 
-            var serializeMembers = type.GetMembers().Where(member => (allProperties && member is IPropertySymbol) || (allFields && member is IFieldSymbol) || member.HasAttribute(IsSerializeAttribute))
+            var serializeMembers = targetType.GetMembers().Where(member => (allProperties && member is IPropertySymbol) || (allFields && member is IFieldSymbol) || member.HasAttribute(IsSerializeAttribute))
                 .Select(static member =>
                 {
                     var attribute = member.GetAttribute(IsSerializeAttribute);
                     return (symbol: member, name: member.Name, nameLower: member.Name.ToLower(), type: GetMemberType(member), converter: attribute?.ConstructorArguments[0].Value as INamedTypeSymbol);
                 })
-                .Where(member => IsSerializablePropertyType(member.type)).ToImmutableArray();
+                .Where(member => member.converter is not null || IsSerializablePropertyType(member.type)).ToImmutableArray();
 
             if (serializeMembers.Length is 0)
             {
@@ -45,9 +45,9 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
             """);
 
-            if (!type.ContainingNamespace.IsGlobalNamespace)
+            if (!converterType.ContainingNamespace.IsGlobalNamespace)
             {
-                sb.AppendLine($"namespace {type.ContainingNamespace};");
+                sb.AppendLine($"namespace {converterType.ContainingNamespace};");
                 sb.AppendLine();
             }
 
@@ -58,7 +58,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             """);
 
             var nesting = new Stack<INamedTypeSymbol>();
-            for (var containingType = type.ContainingType; containingType != null; containingType = containingType.ContainingType)
+            for (var containingType = converterType.ContainingType; containingType != null; containingType = containingType.ContainingType)
             {
                 nesting.Push(containingType);
             }
@@ -70,56 +70,87 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             }
 
             sb.AppendLine($$"""
-            partial {{(type.IsRecord ? "record " : "")}}{{type.TypeKind.ToString().ToLower()}} {{type.Name}} : {{(serializeTypeInformation ? "ITypedAmetrinSerializable" : "IAmetrinSerializable")}}<{{type.Name}}>
+            partial class {{converterType.Name}}
             {
                 [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-                private {{type.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{member.type} {member.nameLower}"))}})
-                {
-            {{string.Join("\n", serializeMembers.Select(member => $"        this.{member.name} = {member.nameLower};"))}}
-                }
-
-                public static ErrorState Serialize({{type.Name}} self, IAmetrinWriter writer)
+                private {{converterType.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{member.type} {member.nameLower}"))}})
                 {
             """);
-            if (serializeTypeInformation)
+
+            foreach (var (_, name, nameLower, _, _) in serializeMembers)
             {
-                sb.AppendLine($"        writer.WriteStringProperty(\"$type\", \"{serializedTypeName}\");");
+                sb.AppendLine($$"""
+                    this.{{name}} = {{nameLower}};
+            """);
             }
+
+            sb.AppendLine($$"""
+                }
+
+                
+                // public static void WriteValue(IAmetrinWriter writer, TEnum value)
+                // {
+                //     writer.WriteStringValue(value.ToString());
+                // }
+
+                // public static TEnum ReadValue(IAmetrinReader reader)
+                // {
+                //     return values[reader.TryReadStringValue().OrThrow()];
+                // }
+
+                // public static Result<TEnum, DeserializationError> TryReadValue(IAmetrinReader reader)
+                // {
+                //     return reader.TryReadStringValue().Map(ConvertToEnum);
+
+                //     static Result<TEnum, DeserializationError> ConvertToEnum(string stringValue)
+                //         => values.TryGetValue(stringValue, out var value) ? value : DeserializationError.CreateInvalidValue("", typeof(TEnum).Name, stringValue);
+                // }
+
+                public static void WriteValue(IAmetrinWriter writer, {{targetType.Name}} value)
+                {
+                    writer.WriteStringProperty("$type", "{{serializedTypeName}}");
+            """);
+
+
             foreach (var member in serializeMembers)
             {
                 sb.AppendLine(member switch
                 {
-                    { converter: not null } => $"        {member.converter}.WriteProperty(writer, \"{member.name}\", self.{member.name});",
-                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"        writer.WriteObjectProperty(\"{member.name}\", self.{member.name}!);",
-                    { } when IsTypeSupportedByWriter(member.type) => $"        writer.Write{member.type.Name}Property(\"{member.name}\", self.{member.name});",
-                    { type.TypeKind: TypeKind.Enum } => $"        writer.WriteInt32Property(\"{member.name}\", (int)self.{member.name});",
+                    { converter: not null } => $$"""
+                    writer.WritePropertyName("{{member.name}}");
+                    {{member.converter}}.WriteValue(writer, value.{{member.name}});
+            """,
+                    // { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $$"""        writer.WriteObjectProperty("{{member.name}}", self.{{member.name}}!);""",
+                    { type.TypeKind: TypeKind.Enum } => $$"""        writer.WriteInt32Property("{{member.name}}", (int)self.{{member.name}});""",
+                    { } when IsTypeSupportedByWriter(member.type) => $$"""        writer.Write{member.type.Name}Property("{{member.name}}", self.{{{member.name}}});""",
                     _ => throw new InvalidOperationException($"Unsupported member type {member.type} for serialization"),
                 });
             }
+
             sb.AppendLine($$"""
-                    return default;
                 }
 
-                public static {{type.Name}} Deserialize(IAmetrinReader reader)
+                public static {{targetType.Name}} ReadValue(IAmetrinReader reader)
                 {
                     return new(
-                        {{string.Join(",\n            ", serializeMembers.Select(member =>
-                            {
-                                return member switch
-                                {
-                                    { converter: not null } => $"{member.converter}.ReadProperty(reader, \"{member.name}\")",
-                                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.ReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
-                                    { } when IsTypeSupportedByWriter(member.type) => $"reader.Read{member.type.Name}Property(\"{member.name}\")",
-                                    { type.TypeKind: TypeKind.Enum } => $"({member.type}) reader.ReadInt32Property(\"{member.name}\")",
-                                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
-                                };
-                            }))}}
-                    );
             """);
+
+            foreach (var member in serializeMembers)
+            {
+                sb.Append("            ");
+                sb.AppendLine(member switch
+                {
+                    { converter: not null } => $$"""reader.ReadPropertyName() {{member.converter}}.ReadProperty(reader, "{member.name}")",
+                    // { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.ReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
+                    { } when IsTypeSupportedByWriter(member.type) => $"reader.Read{member.type.Name}Property(\"{member.name}\")",
+                    { type.TypeKind: TypeKind.Enum } => $"({member.type}) reader.ReadInt32Property(\"{member.name}\")",
+                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
+                });
+            }
             sb.AppendLine($$"""
                 }
 
-                public static Result<{{type.Name}}, DeserializationError> TryDeserialize(IAmetrinReader reader)
+                public static Result<{{targetType.Name}}, DeserializationError> TryDeserialize(IAmetrinReader reader)
                 {
                     DeserializationError error = default;
                     

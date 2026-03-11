@@ -124,6 +124,13 @@ public static class AmetrinSerializer
         using var decompressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : DecompressStream(decryptionStream ?? input);
 
         var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
+
+        return DeserializeDynamic(reader);
+    }
+
+    public static T DeserializeDynamic<T>(IAmetrinReader reader) => (T) DeserializeDynamic(reader);
+    public static object DeserializeDynamic(IAmetrinReader reader)
+    {
         var type = reader.ReadStringProperty("$type");
         if (knownTypes.TryGetValue(type, out var supplier))
         {
@@ -154,6 +161,9 @@ public sealed partial class AmetrinSerializationOptions
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
 public sealed class GenerateSerializerAttribute(bool SerializeTypeName = false, string? TypeName = null, bool AllProperties = false, bool AllFields = false) : Attribute;
+
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class GeneratedConverterAttribute(string? TypeName = null, bool AllProperties = false, bool AllFields = false) : Attribute;
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
 public sealed class SerializeAttribute(Type? Converter = null) : Attribute;

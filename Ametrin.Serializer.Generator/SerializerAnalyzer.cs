@@ -40,5 +40,13 @@ public sealed class SerializerAnalyzer : DiagnosticAnalyzer
                 context.ReportDiagnostic(Diagnostic.Create(InvalidConverter, location));
             }
         }, SymbolKind.Field, SymbolKind.Property);
+
+        context.RegisterSymbolAction(context =>
+        {
+            if (context.Symbol.HasAttribute(IsGeneratedConverterAttribute) && !IsSerializationConverter((ITypeSymbol)context.Symbol))
+            {
+                context.ReportDiagnostic(Diagnostic.Create(InvalidConverter, context.Symbol.Locations[0]));
+            }
+        }, SymbolKind.NamedType);
     }
 }

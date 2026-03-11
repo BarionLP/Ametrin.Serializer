@@ -8,21 +8,21 @@ public sealed class EnumConverter<TEnum> : ISerializationConverter<TEnum> where 
 {
     private static readonly FrozenDictionary<string, TEnum> values = Enum.GetValues<TEnum>().ToFrozenDictionary(static v => v.ToString(), StringComparer.OrdinalIgnoreCase);
 
-    public static void WriteProperty(IAmetrinWriter writer, ReadOnlySpan<char> name, TEnum value)
+    public static void WriteValue(IAmetrinWriter writer, TEnum value)
     {
-        writer.WriteStringProperty(name, value.ToString());
+        writer.WriteStringValue(value.ToString());
     }
 
-    public static TEnum ReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
+    public static TEnum ReadValue(IAmetrinReader reader)
     {
-        return values[reader.ReadStringProperty(name)];
+        return values[reader.TryReadStringValue().OrThrow()];
     }
 
-    public static Result<TEnum, DeserializationError> TryReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
+    public static Result<TEnum, DeserializationError> TryReadValue(IAmetrinReader reader)
     {
-        return reader.TryReadStringProperty(name).Map(name, ConvertToEnum);
+        return reader.TryReadStringValue().Map(ConvertToEnum);
 
-        static Result<TEnum, DeserializationError> ConvertToEnum(string stringValue, ReadOnlySpan<char> name)
-            => values.TryGetValue(stringValue, out var value) ? value : DeserializationError.CreateInvalidPropertyType(name.ToString(), typeof(TEnum).Name);
+        static Result<TEnum, DeserializationError> ConvertToEnum(string stringValue)
+            => values.TryGetValue(stringValue, out var value) ? value : DeserializationError.CreateInvalidValue("", typeof(TEnum).Name, stringValue);
     }
 }
