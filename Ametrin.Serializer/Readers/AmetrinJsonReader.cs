@@ -14,7 +14,12 @@ public abstract class AmetrinJsonReader : IAmetrinReader
 
     public Result<string, DeserializationError> TryReadStringValue() => TryGet<string>("String", static (property, [MaybeNullWhen(false)] out value) => Option.Success(property).Require(static p => p.ValueKind is JsonValueKind.String).Map(static p => p.GetString()).Branch(out value));
     public Result<byte[], DeserializationError> TryReadBytesValue() => TryGet<byte[]>("Byte[]", static (property, [MaybeNullWhen(false)] out value) => property.TryGetBytesFromBase64(out value));
+    public Result<short, DeserializationError> TryReadInt16Value() => TryGet<short>("Int16", static (property, out value) => property.TryGetInt16(out value));
+    public Result<ushort, DeserializationError> TryReadUInt16Value() => TryGet<ushort>("UInt16", static (property, out value) => property.TryGetUInt16(out value));
     public Result<int, DeserializationError> TryReadInt32Value() => TryGet<int>("Int32", static (property, out value) => property.TryGetInt32(out value));
+    public Result<uint, DeserializationError> TryReadUInt32Value() => TryGet<uint>("UInt32", static (property, out value) => property.TryGetUInt32(out value));
+    public Result<long, DeserializationError> TryReadInt64Value() => TryGet<long>("Int64", static (property, out value) => property.TryGetInt64(out value));
+    public Result<ulong, DeserializationError> TryReadUInt64Value() => TryGet<ulong>("UInt64", static (property, out value) => property.TryGetUInt64(out value));
     public Result<Half, DeserializationError> TryReadHalfValue() => TryGet<float>("Half", static (property, out value) => property.TryGetSingle(out value)).Map(static f => (Half)f);
     public Result<float, DeserializationError> TryReadSingleValue() => TryGet<float>("Single", static (property, out value) => property.TryGetSingle(out value));
     public Result<double, DeserializationError> TryReadDoubleValue() => TryGet<double>("Double", static (property, out value) => property.TryGetDouble(out value));

@@ -19,39 +19,49 @@ public static class AmetrinSerializer
 
     };
 
-    public static void Serialize<T>(Stream output, T value, AmetrinSerializationOptions? options = null) where T : ISerializationConverter<T>
+    public static AmetrinJsonWriter CreateJsonSerializer<T>(Stream output, AmetrinSerializationOptions? options = null) where T : ISerializationConverter<T>
     {
         options ??= DefaultOptions;
 
         using var encryptionStream = options.Encryption is null ? null : EncryptStream(output, options.Encryption);
         using var compressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : CompressStream(encryptionStream ?? output, options.CompressionLevel);
 
-        using var writer = new AmetrinJsonWriter(compressionStream ?? encryptionStream ?? output, leaveOpen: true);
+        return new AmetrinJsonWriter(compressionStream ?? encryptionStream ?? output, leaveOpen: true);
         // using var writer = new AmetrinBinaryWriter(compressionStream ?? encryptionStream ?? output, leaveOpen: true);
 
-        writer.WriteStartObject();
-        T.WriteValue(writer, value);
+    }
+
+    public static void WriteDynamic<T>(IAmetrinWriter writer, T value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (!knownWriters.TryGetValue(value.GetType(), out var write))
+        {
+            throw new InvalidOperationException($"Unkown type {value.GetType().Name}");
+        }
+
+        using var dynamicWriter = writer.WriteStartObject();
+        dynamicWriter.WriteStringProperty("$type", value.GetType().Name);
+        dynamicWriter.WritePropertyName("$value");
+        write(dynamicWriter, value);
         writer.WriteEndObject();
     }
 
-    public static T Deserialize<T>(Stream input, AmetrinSerializationOptions? options = null) where T : ISerializationConverter<T>
+    public static Result<T, DeserializationError> TryReadDynamic<T>(IAmetrinReader reader)
     {
-        options ??= DefaultOptions;
+        using var dynamicReader = reader.ReadStartObject();
+        var type = dynamicReader.ReadStringProperty("$type");
 
-        using var decryptionStream = options.Encryption is null ? null : DecryptStream(input, options.Encryption);
-        using var decompressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : DecompressStream(decryptionStream ?? input);
-
-        var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
-        // using var reader = new AmetrinBinaryReader(decompressionStream ?? decryptionStream ?? input, leaveOpen: true);
-
-        reader.ReadStartObject();
-        var value = T.ReadValue(reader);
+        if (!namedReaders.TryGetValue(type, out var read))
+        {
+            throw new InvalidOperationException($"Unkown type {type}");
+        }
+        dynamicReader.ReadPropertyName("$value");
+        var value = read(dynamicReader).Map(static o => (T)o);
         reader.ReadEndObject();
-
         return value;
     }
 
-    public static Result<T, DeserializationError> TryDeserialize<T>(Stream input, AmetrinSerializationOptions? options = null) where T : IAmetrinSerializable<T>
+    public static Result<T, DeserializationError> TryDeserialize<T>(Stream input, AmetrinSerializationOptions? options = null)
     {
         options ??= DefaultOptions;
 
@@ -61,11 +71,12 @@ public static class AmetrinSerializer
         var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
         // using var reader = new AmetrinBinaryReader(decompressionStream ?? decryptionStream ?? input, leaveOpen: true);
 
-        reader.ReadStartObject();
-        var value = T.TryDeserialize(reader);
-        reader.ReadEndObject();
+        if (knownReaders.TryGetValue(typeof(T), out var supplier))
+        {
+            return supplier(reader).Map(static o => (T)o);
+        }
 
-        return value;
+        throw new InvalidOperationException($"Unkown type {typeof(T).Name}");
     }
 
     public static Stream EncryptStream(Stream stream, AmetrinSerializationOptions.EncryptionOptions options)
@@ -79,7 +90,7 @@ public static class AmetrinSerializer
 
         stream.Write(salt);
         stream.Write(aes.IV);
-        
+
         return new CryptoStream(stream, aes.CreateEncryptor(), CryptoStreamMode.Write, leaveOpen: true);
     }
 
@@ -105,40 +116,50 @@ public static class AmetrinSerializer
         return new ZLibStream(stream, CompressionMode.Decompress, leaveOpen: true);
     }
 
-    private static readonly Dictionary<string, Func<IAmetrinReader, object>> knownTypes = [];
+    private static readonly Dictionary<string, Func<IAmetrinReader, Result<object, DeserializationError>>> namedReaders = [];
+    private static readonly Dictionary<Type, Func<IAmetrinReader, Result<object, DeserializationError>>> knownReaders = [];
+    private static readonly Dictionary<Type, Action<IAmetrinWriter, object>> knownWriters = [];
 
-    [EditorBrowsable(EditorBrowsableState.Advanced)]
+    [EditorBrowsable(EditorBrowsableState.Never), Obsolete]
     public static void RegisterSerializer<T>(string name) where T : ISerializationConverter<T>
     {
-        Debug.Assert(!knownTypes.ContainsKey(name));
+        Debug.Assert(!namedReaders.ContainsKey(name));
 
-        knownTypes[name] = static reader => T.ReadValue(reader);
+        RegisterSerializer<T, T>();
     }
 
-    public static T DeserializeDynamic<T>(Stream input, AmetrinSerializationOptions? options = null) => (T) DeserializeDynamic(input, options);
-    public static object DeserializeDynamic(Stream input, AmetrinSerializationOptions? options = null)
+    public static void RegisterSerializer<TConverter, TValue>() where TConverter : ISerializationConverter<TValue>
     {
-        options ??= DefaultOptions;
-
-        using var decryptionStream = options.Encryption is null ? null : DecryptStream(input, options.Encryption);
-        using var decompressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : DecompressStream(decryptionStream ?? input);
-
-        var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
-
-        return DeserializeDynamic(reader);
+        Debug.Assert(!namedReaders.ContainsKey(typeof(TValue).Name));
+        namedReaders[typeof(TValue).Name] = static reader => TConverter.TryReadValue(reader).As<object>();
+        knownReaders[typeof(TValue)] = static reader => TConverter.TryReadValue(reader).As<object>();
+        knownWriters[typeof(TValue)] = static (writer, value) => TConverter.WriteValue(writer, (TValue)value);
     }
 
-    public static T DeserializeDynamic<T>(IAmetrinReader reader) => (T) DeserializeDynamic(reader);
-    public static object DeserializeDynamic(IAmetrinReader reader)
-    {
-        var type = reader.ReadStringProperty("$type");
-        if (knownTypes.TryGetValue(type, out var supplier))
-        {
-            return supplier(reader);
-        }
+    // public static T DeserializeDynamic<T>(Stream input, AmetrinSerializationOptions? options = null) => (T)DeserializeDynamic(input, options);
+    // public static object DeserializeDynamic(Stream input, AmetrinSerializationOptions? options = null)
+    // {
+    //     options ??= DefaultOptions;
 
-        throw new InvalidOperationException($"Unkown type {type}");
-    }
+    //     using var decryptionStream = options.Encryption is null ? null : DecryptStream(input, options.Encryption);
+    //     using var decompressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : DecompressStream(decryptionStream ?? input);
+
+    //     var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
+
+    //     return DeserializeDynamic(reader);
+    // }
+
+    // public static T DeserializeDynamic<T>(IAmetrinReader reader) => (T)DeserializeDynamic(reader);
+    // public static object DeserializeDynamic(IAmetrinReader reader)
+    // {
+    //     var type = reader.ReadStringProperty("$type");
+    //     if (knownTypeNames.TryGetValue(type, out var supplier))
+    //     {
+    //         return reader.ReadObjectValue(reader => supplier(reader));
+    //     }
+
+    //     throw new InvalidOperationException($"Unkown type {type}");
+    // }
 }
 
 [GenerateSerializer]

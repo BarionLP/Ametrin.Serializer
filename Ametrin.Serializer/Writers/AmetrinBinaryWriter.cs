@@ -12,19 +12,24 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
 
     public void WriteBytesValue(ReadOnlySpan<byte> value)
     {
-        WriteStartArray(value.Length);
+        writer.Write7BitEncodedInt(value.Length);
         writer.Write(value);
         WriteEndArray();
     }
 
     public void WriteStringValue(ReadOnlySpan<char> value)
     {
-        WriteStartArray(value.Length);
+        writer.Write7BitEncodedInt(value.Length);
         writer.Write(value);
         WriteEndArray();
     }
 
+    public void WriteInt16Value(short value) => writer.Write(value);
+    public void WriteUInt16Value(ushort value) => writer.Write(value);
     public void WriteInt32Value(int value) => writer.Write(value);
+    public void WriteUInt32Value(uint value) => writer.Write(value);
+    public void WriteInt64Value(long value) => writer.Write(value);
+    public void WriteUInt64Value(ulong value) => writer.Write(value);
     public void WriteHalfValue(Half value) => writer.Write(value);
     public void WriteSingleValue(float value) => writer.Write(value);
     public void WriteDoubleValue(double value) => writer.Write(value);
@@ -36,7 +41,7 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
 
     public IAmetrinWriter WriteStartArray(int length)
     {
-        WriteInt32Value(length);
+        writer.Write7BitEncodedInt(length);
         return new AmetrinBinaryWriter(writer.BaseStream, leaveOpen: true);
     }
     
@@ -47,5 +52,4 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
         writer.Flush();
         writer.Dispose();
     }
-
 }

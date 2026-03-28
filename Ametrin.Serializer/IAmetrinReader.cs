@@ -9,7 +9,12 @@ public interface IAmetrinReader : IDisposable
 
     public Result<byte[], DeserializationError> TryReadBytesValue();
     public Result<string, DeserializationError> TryReadStringValue();
+    public Result<short, DeserializationError> TryReadInt16Value();
+    public Result<ushort, DeserializationError> TryReadUInt16Value();
     public Result<int, DeserializationError> TryReadInt32Value();
+    public Result<uint, DeserializationError> TryReadUInt32Value();
+    public Result<long, DeserializationError> TryReadInt64Value();
+    public Result<ulong, DeserializationError> TryReadUInt64Value();
     public Result<Half, DeserializationError> TryReadHalfValue();
     public Result<float, DeserializationError> TryReadSingleValue();
     public Result<double, DeserializationError> TryReadDoubleValue();
@@ -30,17 +35,16 @@ public static class AmetrinReaderExtensions
         public Result<T, DeserializationError> TryReadObjectProperty<T>(ReadOnlySpan<char> name) where T : ISerializationConverter<T>
             => reader.TryReadProperty(name, reader.TryReadObjectValue<T>).MapError(name, static (e, name) => e with { PropertyName = $"{name}.{e.PropertyName}" });
 
-        public Result<T, DeserializationError> TryReadObjectValue<T>() where T : ISerializationConverter<T>
+        public Result<T, DeserializationError> TryReadObjectValue<T>() where T : ISerializationConverter<T> 
+            => reader.TryReadObjectValue(T.TryReadValue);
+
+        public T ReadObjectValue<T>(Func<IAmetrinReader, Result<T, DeserializationError>> factory) => reader.TryReadObjectValue(factory).Or(static e => e.Throw<T>());
+        public Result<T, DeserializationError> TryReadObjectValue<T>(Func<IAmetrinReader, Result<T, DeserializationError>> factory)
         {
             using var objectReader = reader.ReadStartObject();
-            var result = T.TryReadValue(objectReader);
+            var result = factory(objectReader);
             reader.ReadEndObject();
             return result;
-        }
-
-        public Result<T[], DeserializationError> TryReadArrayValue<T>() where T : IAmetrinSerializable<T>
-        {
-            return reader.TryReadArrayValue(T.TryDeserialize);
         }
 
         public Result<T[], DeserializationError> TryReadArrayValue<T>(Func<IAmetrinReader, Result<T, DeserializationError>> read)
@@ -64,7 +68,12 @@ public static class AmetrinReaderExtensions
 
         public Result<byte[], DeserializationError> TryReadBytesProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadBytesValue);
         public Result<string, DeserializationError> TryReadStringProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadStringValue);
+        public Result<short, DeserializationError> TryReadInt16Property(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadInt16Value);
+        public Result<ushort, DeserializationError> TryReadUInt16Property(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadUInt16Value);
         public Result<int, DeserializationError> TryReadInt32Property(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadInt32Value);
+        public Result<uint, DeserializationError> TryReadUInt32Property(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadUInt32Value);
+        public Result<long, DeserializationError> TryReadInt64Property(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadInt64Value);
+        public Result<ulong, DeserializationError> TryReadUInt64Property(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadUInt64Value);
         public Result<Half, DeserializationError> TryReadHalfProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadHalfValue);
         public Result<float, DeserializationError> TryReadSingleProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadSingleValue);
         public Result<double, DeserializationError> TryReadDoubleProperty(ReadOnlySpan<char> name) => reader.TryReadPropertyErrorAdjusted(name, reader.TryReadDoubleValue);
@@ -74,7 +83,12 @@ public static class AmetrinReaderExtensions
         public void ReadPropertyName(ReadOnlySpan<char> name) => reader.TryReadPropertyName(name).Consume(error: static e => e.Throw());
         public byte[] ReadBytesProperty(ReadOnlySpan<char> name) => reader.TryReadBytesProperty(name).Or(static e => e.Throw<byte[]>());
         public string ReadStringProperty(ReadOnlySpan<char> name) => reader.TryReadStringProperty(name).Or(static e => e.Throw<string>());
+        public short ReadInt16Property(ReadOnlySpan<char> name) => reader.TryReadInt16Property(name).Or(static e => e.Throw<short>());
+        public ushort ReadUInt16Property(ReadOnlySpan<char> name) => reader.TryReadUInt16Property(name).Or(static e => e.Throw<ushort>());
         public int ReadInt32Property(ReadOnlySpan<char> name) => reader.TryReadInt32Property(name).Or(static e => e.Throw<int>());
+        public uint ReadUInt32Property(ReadOnlySpan<char> name) => reader.TryReadUInt32Property(name).Or(static e => e.Throw<uint>());
+        public long ReadInt64Property(ReadOnlySpan<char> name) => reader.TryReadInt64Property(name).Or(static e => e.Throw<long>());
+        public ulong ReadUInt64Property(ReadOnlySpan<char> name) => reader.TryReadUInt64Property(name).Or(static e => e.Throw<ulong>());
         public Half ReadHalfProperty(ReadOnlySpan<char> name) => reader.TryReadHalfProperty(name).Or(static e => e.Throw<Half>());
         public float ReadSingleProperty(ReadOnlySpan<char> name) => reader.TryReadSingleProperty(name).Or(static e => e.Throw<float>());
         public double ReadDoubleProperty(ReadOnlySpan<char> name) => reader.TryReadDoubleProperty(name).Or(static e => e.Throw<double>());

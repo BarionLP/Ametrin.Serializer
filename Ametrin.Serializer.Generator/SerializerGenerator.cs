@@ -89,7 +89,6 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
                 public static void WriteValue(IAmetrinWriter writer, {{targetType.Name}} value)
                 {
-                    writer.WriteStringProperty("$type", "{{serializedTypeName}}");
             """);
 
 

@@ -14,7 +14,12 @@ public sealed class AmetrinJsonWriter(Stream stream, bool leaveOpen = false) : I
     
     public void WriteBytesValue(ReadOnlySpan<byte> value) => writer.WriteBase64StringValue(value);
     public void WriteStringValue(ReadOnlySpan<char> value) => writer.WriteStringValue(value);
+    public void WriteInt16Value(short value) => writer.WriteNumberValue(value);
+    public void WriteUInt16Value(ushort value) => writer.WriteNumberValue(value);
     public void WriteInt32Value(int value) => writer.WriteNumberValue(value);
+    public void WriteUInt32Value(uint value) => writer.WriteNumberValue(value);
+    public void WriteInt64Value(long value) => writer.WriteNumberValue(value);
+    public void WriteUInt64Value(ulong value) => writer.WriteNumberValue(value);
     public void WriteHalfValue(Half value) => writer.WriteNumberValue((float)value);
     public void WriteSingleValue(float value) => writer.WriteNumberValue(value);
     public void WriteDoubleValue(double value) => writer.WriteNumberValue(value);

@@ -13,13 +13,22 @@ public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) :
 
     public Result<byte[], DeserializationError> TryReadBytesValue()
     {
-        var length = reader.ReadInt32();
-        var bytes = reader.ReadBytes(length);
-        return bytes;
+        var length = reader.Read7BitEncodedInt();
+        return reader.ReadBytes(length);
     }
 
-    public Result<string, DeserializationError> TryReadStringValue() => reader.ReadString();
+    public Result<string, DeserializationError> TryReadStringValue()
+    {
+        var length = reader.Read7BitEncodedInt();
+        return new string(reader.ReadChars(length));
+    }
+
+    public Result<short, DeserializationError> TryReadInt16Value() => reader.ReadInt16();
+    public Result<ushort, DeserializationError> TryReadUInt16Value() => reader.ReadUInt16();
     public Result<int, DeserializationError> TryReadInt32Value() => reader.ReadInt32();
+    public Result<uint, DeserializationError> TryReadUInt32Value() => reader.ReadUInt32();
+    public Result<long, DeserializationError> TryReadInt64Value() => reader.ReadInt64();
+    public Result<ulong, DeserializationError> TryReadUInt64Value() => reader.ReadUInt64();
     public Result<Half, DeserializationError> TryReadHalfValue() => reader.ReadHalf();
     public Result<float, DeserializationError> TryReadSingleValue() => reader.ReadSingle();
     public Result<double, DeserializationError> TryReadDoubleValue() => reader.ReadDouble();
@@ -31,7 +40,7 @@ public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) :
 
     public IAmetrinReader ReadStartArray(out int itemCount)
     {
-        itemCount = TryReadInt32Value().OrThrow();
+        itemCount = reader.Read7BitEncodedInt();
         return new AmetrinBinaryReader(reader.BaseStream, leaveOpen: true);
     }
     public void ReadEndArray() { }

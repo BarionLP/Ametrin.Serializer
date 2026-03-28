@@ -5,7 +5,6 @@ namespace Ametrin.Serializer;
 
 public interface ISerializationConverter<T>
 {
-    public abstract static T ReadValue(IAmetrinReader reader);
     public abstract static Result<T, DeserializationError> TryReadValue(IAmetrinReader reader);
     public abstract static void WriteValue(IAmetrinWriter writer, T value);
 }
@@ -18,5 +17,6 @@ public static class SerializationConverterExtension
         {
             return reader.TryReadPropertyName(name).ToResult(() => TConverter.TryReadValue(reader)).Map(static v => v);
         }
+        public static TValue ReadValue(IAmetrinReader reader) => TConverter.TryReadValue(reader).Or(static e => e.Throw<TValue>());
     }
 }
