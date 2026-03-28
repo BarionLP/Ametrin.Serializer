@@ -19,7 +19,7 @@ public static class AmetrinSerializer
 
     };
 
-    public static void Serialize<T>(Stream output, T value, AmetrinSerializationOptions? options = null) where T : IAmetrinSerializable<T>
+    public static void Serialize<T>(Stream output, T value, AmetrinSerializationOptions? options = null) where T : ISerializationConverter<T>
     {
         options ??= DefaultOptions;
 
@@ -30,11 +30,11 @@ public static class AmetrinSerializer
         // using var writer = new AmetrinBinaryWriter(compressionStream ?? encryptionStream ?? output, leaveOpen: true);
 
         writer.WriteStartObject();
-        T.Serialize(value, writer);
+        T.WriteValue(writer, value);
         writer.WriteEndObject();
     }
 
-    public static T Deserialize<T>(Stream input, AmetrinSerializationOptions? options = null) where T : IAmetrinSerializable<T>
+    public static T Deserialize<T>(Stream input, AmetrinSerializationOptions? options = null) where T : ISerializationConverter<T>
     {
         options ??= DefaultOptions;
 
@@ -45,7 +45,7 @@ public static class AmetrinSerializer
         // using var reader = new AmetrinBinaryReader(decompressionStream ?? decryptionStream ?? input, leaveOpen: true);
 
         reader.ReadStartObject();
-        var value = T.Deserialize(reader);
+        var value = T.ReadValue(reader);
         reader.ReadEndObject();
 
         return value;
@@ -107,12 +107,12 @@ public static class AmetrinSerializer
 
     private static readonly Dictionary<string, Func<IAmetrinReader, object>> knownTypes = [];
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public static void RegisterSerializer<T>(string name) where T : ITypedAmetrinSerializable<T>
+    [EditorBrowsable(EditorBrowsableState.Advanced)]
+    public static void RegisterSerializer<T>(string name) where T : ISerializationConverter<T>
     {
         Debug.Assert(!knownTypes.ContainsKey(name));
 
-        knownTypes[name] = static reader => T.Deserialize(reader);
+        knownTypes[name] = static reader => T.ReadValue(reader);
     }
 
     public static T DeserializeDynamic<T>(Stream input, AmetrinSerializationOptions? options = null) => (T) DeserializeDynamic(input, options);

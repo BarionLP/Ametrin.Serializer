@@ -16,10 +16,10 @@ public interface IAmetrinWriter
     public void WriteBooleanValue(bool value);
     public void WriteDateTimeValue(DateTime value);
 
-    public void WriteStartObject();
+    public IAmetrinWriter WriteStartObject();
     public void WriteEndObject();
 
-    public void WriteStartArray(int length);
+    public IAmetrinWriter WriteStartArray(int itemCount);
     public void WriteEndArray();
 }
 

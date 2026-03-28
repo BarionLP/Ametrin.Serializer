@@ -72,38 +72,19 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             sb.AppendLine($$"""
             partial class {{converterType.Name}}
             {
-                [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-                private {{converterType.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{member.type} {member.nameLower}"))}})
-                {
+                // [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
+                // private {{converterType.Name}}({{string.Join(", ", serializeMembers.Select(member => $"{member.type} {member.nameLower}"))}})
+                // {
             """);
 
-            foreach (var (_, name, nameLower, _, _) in serializeMembers)
-            {
-                sb.AppendLine($$"""
-                    this.{{name}} = {{nameLower}};
-            """);
-            }
+            // foreach (var (_, name, nameLower, _, _) in serializeMembers)
+            // {
+            //     sb.AppendLine($$"""
+            //         this.{{name}} = {{nameLower}};
+            // """);
+            // }
 
             sb.AppendLine($$"""
-                }
-
-                
-                // public static void WriteValue(IAmetrinWriter writer, TEnum value)
-                // {
-                //     writer.WriteStringValue(value.ToString());
-                // }
-
-                // public static TEnum ReadValue(IAmetrinReader reader)
-                // {
-                //     return values[reader.TryReadStringValue().OrThrow()];
-                // }
-
-                // public static Result<TEnum, DeserializationError> TryReadValue(IAmetrinReader reader)
-                // {
-                //     return reader.TryReadStringValue().Map(ConvertToEnum);
-
-                //     static Result<TEnum, DeserializationError> ConvertToEnum(string stringValue)
-                //         => values.TryGetValue(stringValue, out var value) ? value : DeserializationError.CreateInvalidValue("", typeof(TEnum).Name, stringValue);
                 // }
 
                 public static void WriteValue(IAmetrinWriter writer, {{targetType.Name}} value)
@@ -120,9 +101,9 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                     writer.WritePropertyName("{{member.name}}");
                     {{member.converter}}.WriteValue(writer, value.{{member.name}});
             """,
-                    // { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $$"""        writer.WriteObjectProperty("{{member.name}}", self.{{member.name}}!);""",
-                    { type.TypeKind: TypeKind.Enum } => $$"""        writer.WriteInt32Property("{{member.name}}", (int)self.{{member.name}});""",
-                    { } when IsTypeSupportedByWriter(member.type) => $$"""        writer.Write{member.type.Name}Property("{{member.name}}", self.{{{member.name}}});""",
+                    // { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $$"""        writer.WriteObjectProperty("{{member.name}}", value.{{member.name}}!);""",
+                    { type.TypeKind: TypeKind.Enum } => $$"""        writer.WriteInt32Property("{{member.name}}", (int)value.{{member.name}});""",
+                    { } when IsTypeSupportedByWriter(member.type) => $$"""        writer.Write{{member.type.Name}}Property("{{member.name}}", value.{{member.name}});""",
                     _ => throw new InvalidOperationException($"Unsupported member type {member.type} for serialization"),
                 });
             }
@@ -130,27 +111,9 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             sb.AppendLine($$"""
                 }
 
-                public static {{targetType.Name}} ReadValue(IAmetrinReader reader)
-                {
-                    return new(
-            """);
+                public static {{targetType.Name}} ReadValue(IAmetrinReader reader) => TryReadValue(reader).OrThrow();
 
-            foreach (var member in serializeMembers)
-            {
-                sb.Append("            ");
-                sb.AppendLine(member switch
-                {
-                    { converter: not null } => $$"""reader.ReadPropertyName() {{member.converter}}.ReadProperty(reader, "{member.name}")",
-                    // { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.ReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
-                    { } when IsTypeSupportedByWriter(member.type) => $"reader.Read{member.type.Name}Property(\"{member.name}\")",
-                    { type.TypeKind: TypeKind.Enum } => $"({member.type}) reader.ReadInt32Property(\"{member.name}\")",
-                    _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
-                });
-            }
-            sb.AppendLine($$"""
-                }
-
-                public static Result<{{targetType.Name}}, DeserializationError> TryDeserialize(IAmetrinReader reader)
+                public static Result<{{targetType.Name}}, DeserializationError> TryReadValue(IAmetrinReader reader)
                 {
                     DeserializationError error = default;
                     
@@ -161,10 +124,10 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sb.AppendLine($$"""
                     var {{member.nameLower}}Result = {{member switch
                 {
-                    { converter: not null } => $"{member.converter}.TryReadProperty(reader, \"{member.name}\")",
-                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"reader.TryReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>(\"{member.name}\")",
-                    { } when IsTypeSupportedByWriter(member.type) => $"reader.TryRead{member.type.Name}Property(\"{member.name}\")",
-                    { type.TypeKind: TypeKind.Enum } => $"reader.TryReadInt32Property(\"{member.name}\").Map(static v => ({member.type}) v)",
+                    { converter: not null } => $"""reader.TryReadPropertyName("{member.name}").ToResult(reader, static reader => {member.converter}.TryReadValue(reader)).Map(static v => v)""",
+                    { } when member.type.HasAttribute(IsGenerateSerializerAttribute) => $"""reader.TryReadObjectProperty<{member.type.WithNullableAnnotation(NullableAnnotation.None)}>("{member.name}")""",
+                    { } when IsTypeSupportedByWriter(member.type) => $"""reader.TryRead{member.type.Name}Property("{member.name}")""",
+                    { type.TypeKind: TypeKind.Enum } => $"""reader.TryReadInt32Property("{member.name}").Map(static v => ({member.type}) v)""",
                     _ => throw new InvalidOperationException($"Unsupported member type {member.type} for deserialization"),
                 }}};
                     if (!{{member.nameLower}}Result.Branch(out var {{member.nameLower}}, out error))
@@ -176,33 +139,27 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             }
 
             sb.AppendLine($$"""
-                    return new {{type.Name}}({{string.Join(", ", serializeMembers.Select(member => member.nameLower))}});
+                    return new {{targetType.Name}}({{string.Join(", ", serializeMembers.Select(member => member.nameLower))}});
             """);
 
-            if (!type.InstanceConstructors.Where(static ctor => !ctor.IsImplicitlyDeclared).Any())
-            {
-                sb.AppendLine($$"""
-                }
+            // if (!type.InstanceConstructors.Where(static ctor => !ctor.IsImplicitlyDeclared).Any())
+            // {
+            //     sb.AppendLine($$"""
+            //     }
 
-                public {{type.Name}}() 
-                {
-                    // type had no constructors. re-adding implicit constructor
-            """);
-            }
+            //     public {{type.Name}}() 
+            //     {
+            //         // type had no constructors. re-adding implicit constructor
+            // """);
+            // }
 
-            if (serializeTypeInformation)
-            {
-                sb.AppendLine($$"""
+            sb.AppendLine($$"""
                 }
 
                 [System.Runtime.CompilerServices.ModuleInitializer]
                 internal static void Register()
                 {
-                    AmetrinSerializer.RegisterSerializer<{{type.Name}}>("{{serializedTypeName}}");
-            """);
-            }
-
-            sb.AppendLine($$"""
+                    AmetrinSerializer.RegisterSerializer<{{targetType.Name}}>("{{serializedTypeName}}");
                 }
             }
             """);
@@ -212,7 +169,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sb.AppendLine("}");
             }
 
-            context.AddSource($"{type.ToDisplayString()}.Serializer.g.cs", sb.ToString());
+            context.AddSource($"{converterType.ToDisplayString()}.Serializer.g.cs", sb.ToString());
         });
     }
 

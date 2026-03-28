@@ -13,10 +13,8 @@ public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) :
 
     public Result<byte[], DeserializationError> TryReadBytesValue()
     {
-        ReadStartArray();
         var length = reader.ReadInt32();
         var bytes = reader.ReadBytes(length);
-        ReadEndArray();
         return bytes;
     }
 
@@ -28,10 +26,14 @@ public sealed class AmetrinBinaryReader(Stream stream, bool leaveOpen = false) :
     public Result<bool, DeserializationError> TryReadBooleanValue() => reader.ReadBoolean();
     public Result<DateTime, DeserializationError> TryReadDateTimeValue() => new DateTime(reader.ReadInt64());
 
-    public IAmetrinReader ReadStartObject() => this;
+    public IAmetrinReader ReadStartObject() => new AmetrinBinaryReader(reader.BaseStream, leaveOpen: true);
     public void ReadEndObject() { }
 
-    public void ReadStartArray() { }
+    public IAmetrinReader ReadStartArray(out int itemCount)
+    {
+        itemCount = TryReadInt32Value().OrThrow();
+        return new AmetrinBinaryReader(reader.BaseStream, leaveOpen: true);
+    }
     public void ReadEndArray() { }
 
     public void Dispose()

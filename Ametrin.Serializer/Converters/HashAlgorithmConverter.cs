@@ -6,18 +6,18 @@ namespace Ametrin.Serializer.Converters;
 
 public sealed class HashAlgorithmConverter : ISerializationConverter<HashAlgorithmName>
 {
-    public static HashAlgorithmName ReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
+    public static HashAlgorithmName ReadValue(IAmetrinReader reader)
     {
-        return new HashAlgorithmName(reader.ReadStringProperty(name));
+        return TryReadValue(reader).OrThrow();
     }
 
-    public static void WriteProperty(IAmetrinWriter writer, ReadOnlySpan<char> name, HashAlgorithmName value)
+    public static void WriteValue(IAmetrinWriter writer, HashAlgorithmName value)
     {
-        writer.WriteStringProperty(name, value.Name);
+        writer.WriteStringValue(value.Name);
     }
 
-    public static Result<HashAlgorithmName, DeserializationError> TryReadProperty(IAmetrinReader reader, ReadOnlySpan<char> name)
+    public static Result<HashAlgorithmName, DeserializationError> TryReadValue(IAmetrinReader reader)
     {
-        return reader.TryReadStringProperty(name).Map(static name => new HashAlgorithmName(name));
+        return reader.TryReadStringValue().Map(static name => new HashAlgorithmName(name));
     }
 }

@@ -19,7 +19,7 @@ public interface IAmetrinReader : IDisposable
     public IAmetrinReader ReadStartObject();
     public void ReadEndObject();
 
-    public int ReadStartArray();
+    public IAmetrinReader ReadStartArray(out int itemCount);
     public void ReadEndArray();
 }
 
@@ -27,13 +27,13 @@ public static class AmetrinReaderExtensions
 {
     extension(IAmetrinReader reader)
     {
-        public Result<T, DeserializationError> TryReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T>
+        public Result<T, DeserializationError> TryReadObjectProperty<T>(ReadOnlySpan<char> name) where T : ISerializationConverter<T>
             => reader.TryReadProperty(name, reader.TryReadObjectValue<T>).MapError(name, static (e, name) => e with { PropertyName = $"{name}.{e.PropertyName}" });
 
         public Result<T, DeserializationError> TryReadObjectValue<T>() where T : ISerializationConverter<T>
         {
-            using var sub = reader.ReadStartObject();
-            var result = T.TryReadValue(sub);
+            using var objectReader = reader.ReadStartObject();
+            var result = T.TryReadValue(objectReader);
             reader.ReadEndObject();
             return result;
         }
@@ -45,11 +45,11 @@ public static class AmetrinReaderExtensions
 
         public Result<T[], DeserializationError> TryReadArrayValue<T>(Func<IAmetrinReader, Result<T, DeserializationError>> read)
         {
-            var length = reader.ReadStartArray();
+            using var arrayReader = reader.ReadStartArray(out var length);
             var items = new T[length];
             for (var i = 0; i < length; i++)
             {
-                if (read(reader).Branch(out var result, out var error))
+                if (read(arrayReader).Branch(out var result, out var error))
                 {
                     items[i] = result;
                 }
@@ -80,7 +80,7 @@ public static class AmetrinReaderExtensions
         public double ReadDoubleProperty(ReadOnlySpan<char> name) => reader.TryReadDoubleProperty(name).Or(static e => e.Throw<double>());
         public bool ReadBooleanProperty(ReadOnlySpan<char> name) => reader.TryReadBooleanProperty(name).Or(static e => e.Throw<bool>());
         public DateTime ReadDateTimeProperty(ReadOnlySpan<char> name) => reader.TryReadDateTimeProperty(name).Or(static e => e.Throw<DateTime>());
-        public T ReadObjectProperty<T>(ReadOnlySpan<char> name) where T : IAmetrinSerializable<T> => reader.TryReadObjectProperty<T>(name).Or(e => e.Throw<T>());
+        public T ReadObjectProperty<T>(ReadOnlySpan<char> name) where T : ISerializationConverter<T> => reader.TryReadObjectProperty<T>(name).Or(e => e.Throw<T>());
 
         private Result<T, DeserializationError> TryReadPropertyErrorAdjusted<T>(ReadOnlySpan<char> name, Func<Result<T, DeserializationError>> getter)
         {

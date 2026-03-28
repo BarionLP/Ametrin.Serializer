@@ -6,22 +6,11 @@ using Ametrin.Optional;
 
 namespace Ametrin.Serializer.Readers;
 
-public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
+public abstract class AmetrinJsonReader : IAmetrinReader
 {
-    private readonly JsonElement element = element;
-    private JsonElement? currentProperty = null;
+    public static AmetrinJsonObjectReader Create(Stream stream) => new(JsonDocument.Parse(stream).RootElement);
 
-    public static AmetrinJsonReader Create(Stream stream) => new(JsonDocument.Parse(stream).RootElement);
-
-    public ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name)
-    {
-        if (element.TryGetProperty(name, out var prop))
-        {
-            currentProperty = prop;
-            return default;
-        }
-        return DeserializationError.CreatePropertyNotFound(name.ToString());
-    }
+    public abstract ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name);
 
     public Result<string, DeserializationError> TryReadStringValue() => TryGet<string>("String", static (property, [MaybeNullWhen(false)] out value) => Option.Success(property).Require(static p => p.ValueKind is JsonValueKind.String).Map(static p => p.GetString()).Branch(out value));
     public Result<byte[], DeserializationError> TryReadBytesValue() => TryGet<byte[]>("Byte[]", static (property, [MaybeNullWhen(false)] out value) => property.TryGetBytesFromBase64(out value));
@@ -29,13 +18,13 @@ public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
     public Result<Half, DeserializationError> TryReadHalfValue() => TryGet<float>("Half", static (property, out value) => property.TryGetSingle(out value)).Map(static f => (Half)f);
     public Result<float, DeserializationError> TryReadSingleValue() => TryGet<float>("Single", static (property, out value) => property.TryGetSingle(out value));
     public Result<double, DeserializationError> TryReadDoubleValue() => TryGet<double>("Double", static (property, out value) => property.TryGetDouble(out value));
-    public Result<bool, DeserializationError> TryReadBooleanValue() => GetCurrentProperty().ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => DeserializationError.CreateInvalidPropertyType("<todo>", "Boolean") };
+    public Result<bool, DeserializationError> TryReadBooleanValue() => ConsumeCurrentElement().ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => DeserializationError.CreateInvalidPropertyType("<todo>", "Boolean") };
     public Result<DateTime, DeserializationError> TryReadDateTimeValue() => TryGet<DateTime>("DateTime", static (property, out value) => property.TryGetDateTime(out value));
 
     private delegate bool TryGetDelegate<T>(JsonElement element, [MaybeNullWhen(false)] out T result);
     private Result<T, DeserializationError> TryGet<T>(string type, TryGetDelegate<T> getter)
     {
-        var current = GetCurrentProperty();
+        var current = ConsumeCurrentElement();
         if (getter(current, out var result))
         {
             return result;
@@ -44,11 +33,45 @@ public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
     }
 
 
-    private JsonElement GetCurrentProperty()
+    protected abstract JsonElement ConsumeCurrentElement();
+
+    public IAmetrinReader ReadStartObject() => new AmetrinJsonObjectReader(ConsumeCurrentElement());
+    public void ReadEndObject() { }
+
+    public IAmetrinReader ReadStartArray(out int itemCount)
     {
-        if (currentProperty is { } current)
+        var current = ConsumeCurrentElement();
+        itemCount = current.GetArrayLength();
+        return new AmetrinJsonArrayReader(current);
+    }
+    public void ReadEndArray() { }
+
+    public void Dispose() { }
+}
+
+public sealed class AmetrinJsonObjectReader(JsonElement objectElement) : AmetrinJsonReader
+{
+    private readonly JsonElement objectElement = objectElement.ValueKind is JsonValueKind.Object ? objectElement : throw new ArgumentException(nameof(objectElement));
+    private JsonElement? currentElement = null;
+
+
+    public override ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name)
+    {
+        if (currentElement.HasValue) throw new InvalidOperationException();
+
+        if (objectElement.TryGetProperty(name, out var prop))
         {
-            currentProperty = null;
+            currentElement = prop;
+            return default;
+        }
+        return DeserializationError.CreatePropertyNotFound(name.ToString());
+    }
+
+    protected override JsonElement ConsumeCurrentElement()
+    {
+        if (currentElement is { } current)
+        {
+            currentElement = null;
             return current;
         }
         else
@@ -56,12 +79,23 @@ public sealed class AmetrinJsonReader(JsonElement element) : IAmetrinReader
             throw new InvalidOperationException();
         }
     }
+}
 
-    public IAmetrinReader ReadStartObject() => new AmetrinJsonReader(GetCurrentProperty());
-    public void ReadEndObject() { }
+public sealed class AmetrinJsonArrayReader(JsonElement arrayElement) : AmetrinJsonReader
+{
+    private JsonElement.ArrayEnumerator array = arrayElement.ValueKind is JsonValueKind.Array ? arrayElement.EnumerateArray() : throw new ArgumentException(nameof(arrayElement));
 
-    public void ReadStartArray() { }
-    public void ReadEndArray() { }
+    public override ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name)
+    {
+        throw new InvalidOperationException();
+    }
 
-    public void Dispose() { }
+    protected override JsonElement ConsumeCurrentElement()
+    {
+        if (array.MoveNext())
+        {
+            return array.Current;
+        }
+        throw new IndexOutOfRangeException();
+    }
 }

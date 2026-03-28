@@ -2,10 +2,8 @@
 
 public sealed class AmetrinNbtWriter(CompoundTag tag) : IAmetrinWriter
 {
-    private readonly CompoundTag root = tag;
+    private readonly CompoundTag tag = tag;
     private string? currentPropertyName;
-    private readonly Stack<CompoundTag> stack = [];
-    private CompoundTag currentTag = tag;
 
     public void WritePropertyName(ReadOnlySpan<char> propertyName)
     {
@@ -52,31 +50,25 @@ public sealed class AmetrinNbtWriter(CompoundTag tag) : IAmetrinWriter
         WriteTagValue(value, static (n, v) => new StringTag(n, v.ToString()));
     }
 
-    public void WriteTagValue<T>(T value, Func<string, T, Tag> tag)
+    public void WriteTagValue<T>(T value, Func<string, T, Tag> factory)
         where T : allows ref struct
     {
         if (currentPropertyName is null) throw new InvalidOperationException();
-        currentTag.Value[currentPropertyName] = tag(currentPropertyName, value);
+        tag.Value[currentPropertyName] = factory(currentPropertyName, value);
         currentPropertyName = null;
     }
 
-    public void WriteStartObject()
+    public IAmetrinWriter WriteStartObject()
     {
         if (currentPropertyName is null) throw new InvalidOperationException();
-        stack.Push(currentTag);
-        currentTag = new(currentPropertyName, []);
+        var newTag = new CompoundTag(currentPropertyName, []);
+        tag.Value[currentPropertyName] = newTag;
         currentPropertyName = null;
+        return new AmetrinNbtWriter(newTag);
     }
 
-    public void WriteEndObject()
-    {
-        if (!stack.TryPop(out var cur))
-        {
-            throw new InvalidOperationException();
-        }
-        currentTag = cur;
-    }
+    public void WriteEndObject() { }
 
-    public void WriteStartArray(int length) => throw new NotImplementedException();
+    public IAmetrinWriter WriteStartArray(int length) => throw new NotImplementedException();
     public void WriteEndArray() => throw new NotImplementedException();
 }

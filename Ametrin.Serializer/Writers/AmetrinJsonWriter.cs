@@ -7,6 +7,8 @@ namespace Ametrin.Serializer.Writers;
 public sealed class AmetrinJsonWriter(Stream stream, bool leaveOpen = false) : IAmetrinWriter, IDisposable
 {
     private readonly Utf8JsonWriter writer = new(stream);
+    private readonly Stream stream = stream;
+    private readonly bool leaveOpen = leaveOpen;
 
     public void WritePropertyName(ReadOnlySpan<char> name) => writer.WritePropertyName(name);
     
@@ -19,10 +21,22 @@ public sealed class AmetrinJsonWriter(Stream stream, bool leaveOpen = false) : I
     public void WriteBooleanValue(bool value) => writer.WriteBooleanValue(value);
     public void WriteDateTimeValue(DateTime value) => writer.WriteStringValue(value);
 
-    public void WriteStartObject() => writer.WriteStartObject();
+    public IAmetrinWriter WriteStartObject()
+    {
+        writer.WriteStartObject();
+        writer.Flush();
+        return new AmetrinJsonWriter(stream, leaveOpen: true);
+    }
+
     public void WriteEndObject() => writer.WriteEndObject();
 
-    public void WriteStartArray(int length) => writer.WriteStartArray();
+    public IAmetrinWriter WriteStartArray(int length)
+    {
+        writer.WriteStartArray();
+        writer.Flush();
+        return new AmetrinJsonWriter(stream, leaveOpen: true);
+    }
+
     public void WriteEndArray() => writer.WriteEndArray();
 
     public void Dispose()

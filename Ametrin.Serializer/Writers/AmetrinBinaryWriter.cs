@@ -9,7 +9,7 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
     private readonly BinaryWriter writer = new(stream, Encoding.UTF8, leaveOpen);
 
     public void WritePropertyName(ReadOnlySpan<char> propertyName) { }
-    
+
     public void WriteBytesValue(ReadOnlySpan<byte> value)
     {
         WriteStartArray(value.Length);
@@ -31,13 +31,15 @@ public sealed class AmetrinBinaryWriter(Stream stream, bool leaveOpen = false) :
     public void WriteBooleanValue(bool value) => writer.Write(value);
     public void WriteDateTimeValue(DateTime value) => writer.Write(value.Ticks);
 
-    public void WriteStartObject() { }
+    public IAmetrinWriter WriteStartObject() => new AmetrinBinaryWriter(writer.BaseStream, leaveOpen: true);
     public void WriteEndObject() { }
 
-    public void WriteStartArray(int length)
+    public IAmetrinWriter WriteStartArray(int length)
     {
         WriteInt32Value(length);
+        return new AmetrinBinaryWriter(writer.BaseStream, leaveOpen: true);
     }
+    
     public void WriteEndArray() { }
 
     public void Dispose()

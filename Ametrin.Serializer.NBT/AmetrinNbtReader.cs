@@ -1,20 +1,8 @@
 namespace Ametrin.Serializer.NBT;
 
-public sealed class AmetrinNbtReader(CompoundTag tag) : IAmetrinReader
+public abstract class AmetrinNbtReader : IAmetrinReader
 {
-    private readonly CompoundTag root = tag;
-    private readonly Dictionary<string, Tag>.AlternateLookup<ReadOnlySpan<char>> lookup = tag.Value.GetAlternateLookup<ReadOnlySpan<char>>();
-    private Tag? currentTag = null;
-
-    public ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name)
-    {
-        if (lookup.TryGetValue(name, out var tag))
-        {
-            currentTag = tag;
-            return default;
-        }
-        return DeserializationError.CreatePropertyNotFound(name.ToString());
-    }
+    public abstract ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name);
 
     public Result<bool, DeserializationError> TryReadBooleanValue() => TryReadTag<SbyteTag>("Boolean")
         .Require(static tag => tag.Value is 0 or 1, tag => DeserializationError.CreateInvalidValue("", "Boolean", tag.Value.ToString())).Map(static tag => tag.Value is 1);
@@ -33,25 +21,47 @@ public sealed class AmetrinNbtReader(CompoundTag tag) : IAmetrinReader
             throw new InvalidOperationException();
         }
 
-        return new AmetrinNbtReader(tag);
+        return new AmetrinNbtObjectReader(tag);
     }
     public void ReadEndObject() { }
 
-    public void ReadStartArray() { }
+    public IAmetrinReader ReadStartArray(out int itemCount) => throw new NotImplementedException();
     public void ReadEndArray() { }
+
+    protected abstract Tag ConsumeCurrentTag();
 
     private Result<TTag, DeserializationError> TryReadTag<TTag>(string typeName) where TTag : Tag
     {
-        if (currentTag is null) throw new InvalidOperationException();
-        if (currentTag is not TTag tag)
-        {
-            currentTag = null;
-            return DeserializationError.CreateInvalidPropertyType("", typeName);
-        }
-
-        currentTag = null;
-        return tag;
+        return ConsumeCurrentTag() is TTag tag ? tag : DeserializationError.CreateInvalidPropertyType("", typeName);
     }
 
     public void Dispose() { }
+}
+
+public sealed class AmetrinNbtObjectReader(CompoundTag root) : AmetrinNbtReader
+{
+    private readonly CompoundTag root = root;
+    private readonly Dictionary<string, Tag>.AlternateLookup<ReadOnlySpan<char>> lookup = root.Value.GetAlternateLookup<ReadOnlySpan<char>>();
+    private Tag? currentTag = null;
+
+    public override ErrorState<DeserializationError> TryReadPropertyName(ReadOnlySpan<char> name)
+    {
+        if (lookup.TryGetValue(name, out var tag))
+        {
+            currentTag = tag;
+            return default;
+        }
+        return DeserializationError.CreatePropertyNotFound(name.ToString());
+    }
+
+    protected override Tag ConsumeCurrentTag()
+    {
+        if (currentTag is { } tag)
+        {
+            currentTag = null;
+            return tag;
+        }
+
+        throw new InvalidOperationException();
+    }
 }
