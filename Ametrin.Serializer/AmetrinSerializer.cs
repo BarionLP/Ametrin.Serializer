@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Security.Cryptography;
 using Ametrin.Optional;
 using Ametrin.Serializer.Converters;
@@ -40,7 +41,7 @@ public static class AmetrinSerializer
         }
 
         using var dynamicWriter = writer.WriteStartObject();
-        dynamicWriter.WriteStringProperty("$type", value.GetType().Name);
+        dynamicWriter.WriteStringProperty("$type", GetFriendlyName(value.GetType()));
         dynamicWriter.WritePropertyName("$value");
         write(dynamicWriter, value);
         writer.WriteEndObject();
@@ -130,36 +131,24 @@ public static class AmetrinSerializer
 
     public static void RegisterSerializer<TConverter, TValue>() where TConverter : ISerializationConverter<TValue>
     {
-        Debug.Assert(!namedReaders.ContainsKey(typeof(TValue).Name));
-        namedReaders[typeof(TValue).Name] = static reader => TConverter.TryReadValue(reader).As<object>();
+        var name = GetFriendlyName(typeof(TValue));
+        Debug.Assert(!namedReaders.ContainsKey(name));
+        namedReaders[name] = static reader => TConverter.TryReadValue(reader).As<object>();
         knownReaders[typeof(TValue)] = static reader => TConverter.TryReadValue(reader).As<object>();
         knownWriters[typeof(TValue)] = static (writer, value) => TConverter.WriteValue(writer, (TValue)value);
     }
 
-    // public static T DeserializeDynamic<T>(Stream input, AmetrinSerializationOptions? options = null) => (T)DeserializeDynamic(input, options);
-    // public static object DeserializeDynamic(Stream input, AmetrinSerializationOptions? options = null)
-    // {
-    //     options ??= DefaultOptions;
+    public static string GetFriendlyName(Type type)
+    {
+        if (!type.IsGenericType)
+            return type.Name;
 
-    //     using var decryptionStream = options.Encryption is null ? null : DecryptStream(input, options.Encryption);
-    //     using var decompressionStream = options.CompressionLevel is CompressionLevel.NoCompression ? null : DecompressStream(decryptionStream ?? input);
+        var name = type.GetGenericTypeDefinition().FullName!;
+        name = name![..name.IndexOf('`')];
+        var args = type.GetGenericArguments().Select(GetFriendlyName);
 
-    //     var reader = AmetrinJsonReader.Create(decompressionStream ?? decryptionStream ?? input);
-
-    //     return DeserializeDynamic(reader);
-    // }
-
-    // public static T DeserializeDynamic<T>(IAmetrinReader reader) => (T)DeserializeDynamic(reader);
-    // public static object DeserializeDynamic(IAmetrinReader reader)
-    // {
-    //     var type = reader.ReadStringProperty("$type");
-    //     if (knownTypeNames.TryGetValue(type, out var supplier))
-    //     {
-    //         return reader.ReadObjectValue(reader => supplier(reader));
-    //     }
-
-    //     throw new InvalidOperationException($"Unkown type {type}");
-    // }
+        return $"{name}<{string.Join(", ", args)}>";
+    }
 }
 
 [GenerateSerializer]
