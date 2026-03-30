@@ -121,11 +121,8 @@ public static class AmetrinSerializer
     private static readonly Dictionary<Type, Func<IAmetrinReader, Result<object, DeserializationError>>> knownReaders = [];
     private static readonly Dictionary<Type, Action<IAmetrinWriter, object>> knownWriters = [];
 
-    [EditorBrowsable(EditorBrowsableState.Never), Obsolete]
-    public static void RegisterSerializer<T>(string name) where T : ISerializationConverter<T>
+    public static void RegisterSerializer<T>() where T : ISerializationConverter<T>
     {
-        Debug.Assert(!namedReaders.ContainsKey(name));
-
         RegisterSerializer<T, T>();
     }
 
