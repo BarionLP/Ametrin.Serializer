@@ -121,18 +121,26 @@ public static class AmetrinSerializer
     private static readonly Dictionary<Type, Func<IAmetrinReader, Result<object, DeserializationError>>> knownReaders = [];
     private static readonly Dictionary<Type, Action<IAmetrinWriter, object>> knownWriters = [];
 
-    public static void RegisterSerializer<T>() where T : ISerializationConverter<T>
+    public static void RegisterSerializer<T>()
+        where T : ISerializationConverter<T>
     {
         RegisterSerializer<T, T>();
     }
 
-    public static void RegisterSerializer<TConverter, TValue>() where TConverter : ISerializationConverter<TValue>
+    public static void RegisterSerializer<TConverter, TValue>()
+        where TConverter : ISerializationConverter<TValue>
     {
         var name = GetFriendlyName(typeof(TValue));
         Debug.Assert(!namedReaders.ContainsKey(name));
         namedReaders[name] = static reader => TConverter.TryReadValue(reader).As<object>();
         knownReaders[typeof(TValue)] = static reader => TConverter.TryReadValue(reader).As<object>();
         knownWriters[typeof(TValue)] = static (writer, value) => TConverter.WriteValue(writer, (TValue)value);
+    }
+
+    public static void RegisterNamedReader<TConverter, TValue>(string name)
+        where TConverter : ISerializationConverter<TValue>
+    {
+        namedReaders[name] = static reader => TConverter.TryReadValue(reader).As<object>();
     }
 
     public static string GetFriendlyName(Type type)
