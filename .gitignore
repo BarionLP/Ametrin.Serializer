@@ -88,6 +88,8 @@ StyleCopReport.xml
 *.pgc
 *.pgd
 *.rsp
+# but not Directory.Build.rsp, as it configures directory-level build defaults
+!Directory.Build.rsp
 *.sbr
 *.tlb
 *.tli
@@ -126,6 +128,8 @@ ipch/
 
 # Visual Studio Trace Files
 *.e2e
+# but not directories ending in .e2e
+!*.e2e/
 
 # TFS 2012 Local Workspace
 $tf/
@@ -390,6 +394,9 @@ FodyWeavers.xsd
 !.vscode/extensions.json
 *.code-workspace
 
+# Official VS Code C# Dev Kit Extension exclusion
+*.lscache
+
 # Local History for Visual Studio Code
 .history/
 
@@ -421,10 +428,6 @@ autom4te.cache/
 *.tar.gz
 tarballs/
 test-results/
-
-# Mac bundle stuff
-*.dmg
-*.app
 
 # content below from: https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
 # General
