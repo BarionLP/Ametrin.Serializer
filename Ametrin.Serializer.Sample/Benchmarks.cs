@@ -9,8 +9,6 @@ namespace Ametrin.Serializer.Sample;
 [MemoryDiagnoser(true)]
 public class Benchmarks
 {
-    private AmetrinSerializationOptions OptionsNone = new();
-
     private AmetrinSerializationOptions OptionsCompression = new()
     {
         CompressionLevel = CompressionLevel.Optimal,
@@ -55,25 +53,29 @@ public class Benchmarks
     [Benchmark]
     public void Ametrin_None()
     {
-        AmetrinSerializer.Serialize(stream, data);
+        using var writer = AmetrinSerializer.CreateJsonSerializer(stream);
+        BenchmarkData.WriteValue(writer, data);
     }
 
     [Benchmark]
     public void Ametrin_Compressed()
     {
-        AmetrinSerializer.Serialize(stream, data, OptionsCompression);
+        using var writer = AmetrinSerializer.CreateJsonSerializer(stream, OptionsCompression);
+        BenchmarkData.WriteValue(writer, data);
     }
 
     [Benchmark]
     public void Ametrin_Encypted()
     {
-        AmetrinSerializer.Serialize(stream, data, OptionsEncrption);
+        using var writer = AmetrinSerializer.CreateJsonSerializer(stream, OptionsEncrption);
+        BenchmarkData.WriteValue(writer, data);
     }
 
     [Benchmark]
     public void Ametrin_Both()
     {
-        AmetrinSerializer.Serialize(stream, data, OptionsBoth);
+        using var writer = AmetrinSerializer.CreateJsonSerializer(stream, OptionsBoth);
+        BenchmarkData.WriteValue(writer, data);
     }
 }
 

@@ -20,7 +20,7 @@ public static class AmetrinSerializer
 
     };
 
-    public static AmetrinJsonWriter CreateJsonSerializer<T>(Stream output, AmetrinSerializationOptions? options = null) where T : ISerializationConverter<T>
+    public static AmetrinJsonWriter CreateJsonSerializer(Stream output, AmetrinSerializationOptions? options = null)
     {
         options ??= DefaultOptions;
 

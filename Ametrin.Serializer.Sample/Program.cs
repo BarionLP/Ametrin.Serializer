@@ -16,8 +16,9 @@ var options = new AmetrinSerializationOptions
 };
 
 using var stream = new MemoryStream();
+using var writer = AmetrinSerializer.CreateJsonSerializer(stream, options);
 
-AmetrinSerializer.Serialize(stream, value, options);
+BenchmarkData.WriteValue(writer, value);
 
 stream.Seek(0, SeekOrigin.Begin);
 
@@ -25,7 +26,7 @@ using var peakingStream = new StreamReader(AmetrinSerializer.DecryptStream(strea
 Console.WriteLine(peakingStream.ReadToEnd());
 
 stream.Seek(0, SeekOrigin.Begin);
-var newValue = AmetrinSerializer.Deserialize<BenchmarkData>(stream, options);
+var newValue = AmetrinSerializer.TryDeserialize<BenchmarkData>(stream, options).OrThrow();
 
 BenchmarkRunner.Run<Benchmarks>();
 
