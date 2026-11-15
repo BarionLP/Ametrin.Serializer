@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Ametrin.Serializer.Generator\Ametrin.Serializer.Generator.csproj" ReferenceOutputAssembly="true" OutputItemType="Analyzer" />
+        <ProjectReference Include="../Ametrin.Serializer.Generator/Ametrin.Serializer.Generator.csproj" ReferenceOutputAssembly="true" OutputItemType="Analyzer" />
     </ItemGroup>
 
     <ItemGroup>

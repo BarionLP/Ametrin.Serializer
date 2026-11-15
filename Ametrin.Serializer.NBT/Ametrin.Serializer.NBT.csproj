@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Ametrin.Serializer\Ametrin.Serializer.csproj" />
-    <ProjectReference Include="..\..\Ametrin.NBT\Ametrin.NBT\Ametrin.NBT.csproj" />
-    <ProjectReference Include="..\Ametrin.Serializer.Generator\Ametrin.Serializer.Generator.csproj" ReferenceOutputAssembly="true" OutputItemType="Analyzer" />
+    <ProjectReference Include="../Ametrin.Serializer/Ametrin.Serializer.csproj" />
+    <ProjectReference Include="../../Ametrin.NBT/Ametrin.NBT/Ametrin.NBT.csproj" />
+    <ProjectReference Include="../Ametrin.Serializer.Generator/Ametrin.Serializer.Generator.csproj" ReferenceOutputAssembly="true" OutputItemType="Analyzer" />
   </ItemGroup>
 
 </Project>
